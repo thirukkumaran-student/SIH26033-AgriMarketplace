@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment - never commit secrets
+.env
+
+# Test artifacts
+.pytest_cache/
+test_auth.db
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
