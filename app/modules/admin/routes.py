@@ -33,19 +33,27 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def _get_farmer_or_404(db: Session, user_id: int) -> User:
-    """Fetch a user by id and verify they are a FARMER, or raise 404."""
+def _get_verification_user_or_404(db: Session, user_id: int) -> User:
+    """Fetch a farmer or financier who has verification documents."""
     user = db.get(User, user_id)
-    if user is None or user.role != "FARMER":
+
+    if user is None or user.role not in {
+        Role.FARMER.value,
+        Role.FINANCIER.value,
+    }:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Farmer with user_id={user_id} not found",
+            detail=f"Verification user with user_id={user_id} not found",
         )
+
     return user
 
 
-def _get_farmer_documents(db: Session, user_id: int) -> list[VerificationDocument]:
-    """Return all verification documents for a given farmer user id."""
+def _get_verification_documents(
+    db: Session,
+    user_id: int,
+) -> list[VerificationDocument]:
+    """Return all verification documents for a given user."""
     return list(db.scalars(
         select(VerificationDocument).where(VerificationDocument.user_id == user_id)
     ).all())
@@ -99,7 +107,7 @@ def list_verifications(
         user = db.get(User, row.user_id)
         if user is None:
             continue
-        docs = _get_farmer_documents(db, row.user_id)
+        docs = _get_verification_documents(db, row.user_id)
         overall = _compute_overall_status(docs)
         result.append(
             AdminVerificationQueueItem(
@@ -133,8 +141,8 @@ def get_farmer_verification(
     current_user: Annotated[User, Depends(require_role(Role.ADMIN))],
 ) -> AdminVerificationDetailResponse:
     """Return the farmer's profile + all verification documents for review."""
-    farmer = _get_farmer_or_404(db, user_id)
-    docs = _get_farmer_documents(db, user_id)
+    verification_user = _get_verification_user_or_404(db, user_id)
+    docs = _get_verification_documents(db, user_id)
 
     if not docs:
         raise HTTPException(
@@ -147,9 +155,9 @@ def get_farmer_verification(
     )
 
     return AdminVerificationDetailResponse(
-        user_id=farmer.id,
-        farmer_name=farmer.name,
-        farmer_email=farmer.email,
+        user_id=verification_user.id,
+        farmer_name=verification_user.name,
+        farmer_email=verification_user.email,
         overall_status=_compute_overall_status(docs),
         profile=AdminFarmerProfileResponse.model_validate(profile) if profile else None,
         documents=[AdminVerificationDocumentResponse.model_validate(d) for d in docs],
@@ -172,8 +180,8 @@ def approve_farmer(
     current_user: Annotated[User, Depends(require_role(Role.ADMIN))],
 ) -> AdminActionResponse:
     """Set all PENDING documents for the farmer to APPROVED."""
-    farmer = _get_farmer_or_404(db, user_id)
-    docs = _get_farmer_documents(db, user_id)
+    verification_user = _get_verification_user_or_404(db, user_id)
+    docs = _get_verification_documents(db, user_id)
 
     if not docs:
         raise HTTPException(
@@ -193,8 +201,8 @@ def approve_farmer(
     db.commit()
 
     return AdminActionResponse(
-        user_id=farmer.id,
-        farmer_name=farmer.name,
+        user_id=verification_user.id,
+        farmer_name=verification_user.name,
         action="APPROVE",
         new_status=VerificationStatus.APPROVED,
         reviewed_by=current_user.id,
@@ -220,8 +228,8 @@ def reject_farmer(
     current_user: Annotated[User, Depends(require_role(Role.ADMIN))],
 ) -> AdminActionResponse:
     """Set all PENDING documents for the farmer to REJECTED with remarks."""
-    farmer = _get_farmer_or_404(db, user_id)
-    docs = _get_farmer_documents(db, user_id)
+    verification_user = _get_verification_user_or_404(db, user_id)
+    docs = _get_verification_documents(db, user_id)
 
     if not docs:
         raise HTTPException(
@@ -242,8 +250,8 @@ def reject_farmer(
     db.commit()
 
     return AdminActionResponse(
-        user_id=farmer.id,
-        farmer_name=farmer.name,
+        user_id=verification_user.id,
+        farmer_name=verification_user.name,
         action="REJECT",
         new_status=VerificationStatus.REJECTED,
         reviewed_by=current_user.id,

@@ -12,6 +12,7 @@ from app.models.shipment import Shipment
 from app.models.consumer import ConsumerProfile
 from app.models.dispute import Dispute
 from app.models.buyer import BuyerProfile
+from app.models.financier import FinancierProfile
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "ConsumerProfile",
     "Dispute",
     "BuyerProfile",
+    "FinancierProfile",
 ]

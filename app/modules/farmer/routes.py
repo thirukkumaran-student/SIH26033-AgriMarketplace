@@ -50,7 +50,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 def create_profile(
     payload: FarmerProfileCreate,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.FARMER))],
+    current_user: Annotated[User, Depends(require_role(Role.FARMER, Role.FINANCIER))],
 ) -> FarmerProfile:
     """Create a farmer profile.  Only one profile per farmer — duplicate creation returns 409."""
     existing = db.scalar(
@@ -139,10 +139,11 @@ verification_router = APIRouter(prefix="/api/verification", tags=["verification"
 def submit_document(
     payload: VerificationDocumentSubmit,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.FARMER))],
-) -> VerificationDocument:
+    current_user: Annotated[
+        User,
+        Depends(require_role(Role.FARMER, Role.FINANCIER)),
+    ],) -> VerificationDocument:
     """Submit a document for farmer verification.
-
     Each submission creates a new PENDING record.  The farmer may submit
     multiple documents of different types.
     """
@@ -166,7 +167,10 @@ def submit_document(
 )
 def get_verification_status(
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.FARMER))],
+    current_user: Annotated[
+    User,
+    Depends(require_role(Role.FARMER, Role.FINANCIER)),
+]
 ) -> VerificationStatusResponse:
     """Return all documents submitted by the farmer and overall status.
 

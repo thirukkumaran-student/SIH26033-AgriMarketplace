@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.farmer import FarmerProfile, VerificationDocument
     from app.models.consumer import ConsumerProfile
     from app.models.buyer import BuyerProfile
+    from app.models.financier import FinancierProfile
 
 from app.core.enums import Role
 
@@ -60,6 +61,11 @@ class User(Base):
     buyer_profile: Mapped["BuyerProfile | None"] = relationship(
         back_populates="user",
         uselist=False,
+    )
+
+    financier_profile: Mapped["FinancierProfile | None"] = relationship(
+    back_populates="user",
+    uselist=False,
     )
     # verification_documents relationship removed to avoid FK ambiguity
     # (user_id + reviewed_by both point to users.id). Use explicit queries instead.
