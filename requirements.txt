@@ -3,3 +3,6 @@ dotenv
 requests
 scikit-learn
 joblib
+
+fastapi
+pydantic
