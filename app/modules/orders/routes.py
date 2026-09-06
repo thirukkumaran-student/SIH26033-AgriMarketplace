@@ -183,35 +183,24 @@ def create_order(
 def list_orders(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
-    role_filter: Role | None = Query(default=None, description="Filter by role (for admin)"),
 ) -> list[Order]:
     """Return orders relevant to the authenticated user.
 
     FARMER: orders for their produce
     CONSUMER/BULK_BUYER: their own orders
-    ADMIN: optionally filter by role, or see all orders
+    ADMIN: all orders
     """
-
     if current_user.role == Role.ADMIN.value:
-        # Admin can see all orders, with optional role filter
-        query = select(Order)
-        if role_filter:
-            if role_filter == Role.FARMER:
-                query = query.where(Order.farmer_id != 0)  # placeholder, admin sees all farmer orders
-            elif role_filter == Role.CONSUMER:
-                query = query.where(Order.buyer_id != 0)
-            elif role_filter == Role.BULK_BUYER:
-                query = query.where(Order.buyer_id != 0)
-        query = query.order_by(Order.created_at.desc())
+        query = select(Order).order_by(Order.created_at.desc())
         return list(db.scalars(query).all())
 
-    elif current_user.role == Role.FARMER.value:
+    if current_user.role == Role.FARMER.value:
         query = select(Order).where(Order.farmer_id == current_user.id).order_by(Order.created_at.desc())
         return list(db.scalars(query).all())
 
-    else:  # CONSUMER or BULK_BUYER
-        query = select(Order).where(Order.buyer_id == current_user.id).order_by(Order.created_at.desc())
-        return list(db.scalars(query).all())
+    # CONSUMER or BULK_BUYER
+    query = select(Order).where(Order.buyer_id == current_user.id).order_by(Order.created_at.desc())
+    return list(db.scalars(query).all())
 
 
 # ---------------------------------------------------------------------------

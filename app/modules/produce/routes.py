@@ -28,6 +28,27 @@ from app.models.user import User
 from app.modules.auth.dependencies import get_current_user, require_role
 from app.schemas.produce import ProduceCreate, ProduceResponse, ProduceUpdate
 
+
+def _get_verification_status(db: Session, farmer_id: int) -> str:
+    """Return the farmer's overall verification status string.
+
+    Mirrors the logic used by /api/verification/status so produce status
+    updates can reuse the same APPROVED gate.
+    """
+    docs = list(db.scalars(
+        select(VerificationDocument).where(VerificationDocument.user_id == farmer_id)
+    ).all())
+
+    if not docs:
+        return "UNVERIFIED"
+
+    statuses = {d.status for d in docs}
+    if VerificationStatus.PENDING.value in statuses:
+        return VerificationStatus.PENDING.value
+    if all(d.status == VerificationStatus.APPROVED.value for d in docs):
+        return VerificationStatus.APPROVED.value
+    return VerificationStatus.REJECTED.value
+
 router = APIRouter(prefix="/api/produce", tags=["produce"])
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -202,7 +223,11 @@ def update_produce(
     db: DbSession,
     current_user: Annotated[User, Depends(require_role(Role.FARMER))],
 ) -> Produce:
-    """Update a produce listing. Only the owning farmer may update."""
+    """Update a produce listing. Only the owning farmer may update.
+
+    Status changes require the farmer to be APPROVED, and a listing may not
+    be marked SOLD_OUT while available quantity is still greater than 0.
+    """
     produce = _get_produce_or_404(db, produce_id)
 
     if produce.farmer_id != current_user.id:
@@ -219,9 +244,35 @@ def update_produce(
             detail="No fields to update",
         )
 
+    if "status" in update_data:
+        # Status changes require APPROVED verification (reuses the same gate
+        # as produce creation).
+        verification_status = _get_verification_status(db, current_user.id)
+        if verification_status != VerificationStatus.APPROVED.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "You must be APPROVED before you can change listing status. "
+                    f"Current verification status: {verification_status}."
+                ),
+            )
+
+        new_status = update_data["status"]
+        if hasattr(new_status, "value"):
+            new_status = new_status.value
+        update_data["status"] = new_status
+
+        # A listing may not be marked SOLD_OUT while stock is still available.
+        if new_status == ProduceStatus.SOLD_OUT.value and produce.quantity > 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Cannot mark listing as SOLD_OUT while quantity is still greater than 0. "
+                    "Reduce quantity to 0 first, or set status to INACTIVE."
+                ),
+            )
+
     for field, value in update_data.items():
-        if field == "status":
-            value = value.value if hasattr(value, "value") else value
         setattr(produce, field, value)
 
     db.commit()

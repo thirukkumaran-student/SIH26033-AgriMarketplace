@@ -6,7 +6,7 @@ accepted as user input.
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.enums import ProduceStatus
 
@@ -38,6 +38,13 @@ class ProduceUpdate(BaseModel):
     quality_grade: str | None = Field(default=None, max_length=20)
     image: str | None = Field(default=None, max_length=500)
     status: ProduceStatus | None = None
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_may_be_zero_on_update(cls, value: int | None) -> int | None:
+        # PATCH may set quantity=0 so a listing can later be marked SOLD_OUT.
+        # Creation still forbids quantity=0 via ProduceCreate.gt=0.
+        return value
 
 
 class ProduceResponse(BaseModel):

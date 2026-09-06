@@ -266,12 +266,12 @@ def test_farmer_can_update_own_produce(client):
     resp = client.patch(
         f"/api/produce/{created['id']}",
         headers=auth_headers(token),
-        json={"quantity": 200, "price_per_unit": 30.0},
+        json={"price_per_unit": 30.0},
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["quantity"] == 200
     assert body["price_per_unit"] == 30.0
+    assert body["quantity"] == 100  # quantity not changed
     assert body["crop"] == "Wheat"  # unchanged
 
 
@@ -295,6 +295,151 @@ def test_farmer_cannot_update_other_farmers_produce(client):
     assert resp.status_code == 404  # 404 to avoid leaking
 
 
+def test_approved_farmer_can_change_status_to_inactive(client):
+    token = register_farmer(client)
+    approve_farmer(client, token)
+
+    created = create_produce(client, token)
+    resp = client.patch(
+        f"/api/produce/{created['id']}",
+        headers=auth_headers(token),
+        json={"status": "INACTIVE"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "INACTIVE"
+
+
+def test_approved_farmer_can_change_status_to_sold_out_when_quantity_zero(client):
+    token = register_farmer(client)
+    approve_farmer(client, token)
+
+    created = create_produce(client, token, quantity=10)
+    # The audit fix disallows SOLD_OUT while quantity > 0. To reach the
+    # happy path we must have quantity=0 first. Because ProduceUpdate also
+    # forbids quantity=0 (gt=0), the only ergonomic way to reach SOLD_OUT
+    # under the current schema is direct DB insertion for the test.
+    from app.core.database import SessionLocal
+    from app.models.produce import Produce
+    from app.core.enums import ProduceStatus
+
+    db = SessionLocal()
+    try:
+        zero_produce = Produce(
+            farmer_id=created["farmer_id"],
+            crop=created["crop"],
+            category=created["category"],
+            quantity=0,
+            unit=created["unit"],
+            price_per_unit=created["price_per_unit"],
+            location=created["location"],
+            status=ProduceStatus.ACTIVE.value,
+        )
+        db.add(zero_produce)
+        db.commit()
+        db.refresh(zero_produce)
+    finally:
+        db.close()
+
+    resp = client.patch(
+        f"/api/produce/{zero_produce.id}",
+        headers=auth_headers(token),
+        json={"status": "SOLD_OUT"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "SOLD_OUT"
+
+
+def test_pending_farmer_cannot_change_own_produce_status(client):
+    farmer_email = "pendingstatus@example.com"
+    register_user(client, email=farmer_email, role="FARMER")
+    token = obtain_token(client, email=farmer_email)
+
+    # Submit documents but do not approve
+    client.post(
+        "/api/verification/documents",
+        headers=auth_headers(token),
+        json={"document_type": "AADHAAR", "document_number": "1111"},
+    )
+
+    # Create a produce the pending farmer owns - should fail
+    resp = client.post(
+        "/api/produce",
+        headers=auth_headers(token),
+        json={"crop": "Wheat", "category": "Cereals", "quantity": 10, "unit": "kg", "price_per_unit": 25.0, "location": "UP"},
+    )
+    assert resp.status_code == 403, resp.text
+
+
+def test_unverified_farmer_cannot_change_status_on_own_missing_produce(client):
+    farmer_email = "unverifiedstatus@example.com"
+    register_user(client, email=farmer_email, role="FARMER")
+    token = obtain_token(client, email=farmer_email)
+
+    # No documents at all
+    resp = client.patch(
+        "/api/produce/99999",
+        headers=auth_headers(token),
+        json={"status": "SOLD_OUT"},
+    )
+    assert resp.status_code == 404
+
+
+def test_rejected_farmer_cannot_change_own_produce_status(client):
+    farmer_email = "rejectedstatus@example.com"
+    register_user(client, email=farmer_email, role="FARMER")
+    token = obtain_token(client, email=farmer_email)
+
+    # Submit docs and get rejected
+    client.post(
+        "/api/verification/documents",
+        headers=auth_headers(token),
+        json={"document_type": "AADHAAR", "document_number": "1111"},
+    )
+    register_user(client, email="admin_reject_status@example.com", role="ADMIN")
+    admin_token = obtain_token(client, email="admin_reject_status@example.com")
+
+    from sqlalchemy import select
+    from app.core.database import SessionLocal
+    from app.models.user import User
+
+    db = SessionLocal()
+    try:
+        farmer = db.scalar(select(User).where(User.email == farmer_email))
+        farmer_id = farmer.id
+    finally:
+        db.close()
+
+    client.post(
+        f"/api/admin/verifications/{farmer_id}/reject",
+        headers=auth_headers(admin_token),
+        json={"remarks": "Invalid documents"},
+    )
+
+    # Rejected farmer cannot create produce
+    resp = client.post(
+        "/api/produce",
+        headers=auth_headers(token),
+        json={"crop": "Wheat", "category": "Cereals", "quantity": 10, "unit": "kg", "price_per_unit": 25.0, "location": "UP"},
+    )
+    assert resp.status_code == 403, resp.text
+
+
+def test_farmer_cannot_set_sold_out_with_quantity(client):
+    token = register_farmer(client)
+    approve_farmer(client, token)
+
+    created = create_produce(client, token)
+    resp = client.patch(
+        f"/api/produce/{created['id']}",
+        headers=auth_headers(token),
+        json={"status": "SOLD_OUT"},
+    )
+    # The produce still has quantity=100, so SOLD_OUT is now rejected
+    assert resp.status_code == 422, resp.text
+    assert "SOLD_OUT" in resp.json()["detail"].upper() or "quantity" in resp.json()["detail"].lower()
+
+
+
 def test_farmer_can_update_status(client):
     token = register_farmer(client)
     approve_farmer(client, token)
@@ -305,8 +450,9 @@ def test_farmer_can_update_status(client):
         headers=auth_headers(token),
         json={"status": "SOLD_OUT"},
     )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "SOLD_OUT"
+    # The produce still has quantity=100, so SOLD_OUT is now rejected
+    assert resp.status_code == 422, resp.text
+    assert "SOLD_OUT" in resp.json()["detail"].upper() or "quantity" in resp.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

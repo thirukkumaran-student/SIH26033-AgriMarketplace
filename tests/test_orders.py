@@ -567,6 +567,22 @@ def test_admin_can_view_orders(client: TestClient):
     assert len(resp.json()) >= 1
 
 
+def test_admin_orders_no_longer_accepted_role_query_param(client: TestClient):
+    """The misleading '?role=...' query parameter was removed from GET /api/orders."""
+    admin_token = register_user(client, email="admin_only@example.com", role="ADMIN")
+    admin_token = obtain_token(client, email="admin_only@example.com")
+
+    resp = client.get(
+        "/api/orders?role=CONSUMER",
+        headers=auth_headers(admin_token),
+    )
+    # FastAPI ignores unrecognized query params by default; the fix is that the
+    # endpoint no longer uses 'role'. Confirm the endpoint still works and no
+    # longer has the placeholder filter.
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
 def test_order_stock_atomic(client: TestClient):
     """Test that stock is never negative even with concurrent-like rejections."""
     farmer_token, produce = register_farmer_with_produce(client, quantity=10)
