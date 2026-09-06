@@ -1,6 +1,8 @@
 """Pydantic schemas for Order payloads and responses.
 
-Key design: the buyer may only submit ``produce_id`` and ``quantity``.
+Key design: the buyer submits ``produce_id`` and ``quantity``.
+For platform-financed bulk orders, ``relationship_id`` identifies the
+buyer's already-established active financing relationship.
 ``farmer_id``, ``unit_price``, and ``total_amount`` are determined by the
 backend from the Produce listing and the owning farmer.
 """
@@ -15,13 +17,19 @@ from app.core.enums import OrderStatus
 class OrderCreate(BaseModel):
     """Payload for POST /api/orders.
 
-    buyer provides only:
-    - produce_id (which listing to buy from)
-    - quantity (how many units)
+    buyer provides:
+    - produce_id
+    - quantity
+    - relationship_id only when using platform financing
     """
 
     produce_id: int = Field(gt=0, description="Produce listing id to order from")
     quantity: int = Field(gt=0, description="Quantity to order (> 0)")
+    relationship_id: int | None = Field(
+        default=None,
+        gt=0,
+        description="Active financing relationship for platform-financed orders",
+    )
 
 
 class OrderReviewRequest(BaseModel):

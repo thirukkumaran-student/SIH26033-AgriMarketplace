@@ -26,8 +26,16 @@ from app.models.farmer import VerificationDocument
 from app.models.order import Order
 from app.models.produce import Produce
 from app.models.user import User
+from app.models.buyer import BuyerProfile
+from app.modules.finance.models import FinancingRelationship
+from app.modules.finance.schemas import FinancingTransactionCreate
+from app.modules.finance.service import create_financing_transaction
 from app.modules.auth.dependencies import get_current_user, require_role
 from app.schemas.order import OrderCreate, OrderReviewRequest, OrderReviewResponse, OrderResponse, OrderStatusUpdate
+from app.models.buyer import BuyerProfile
+from app.modules.finance.models import FinancingRelationship
+from app.modules.finance.schemas import FinancingTransactionCreate
+from app.modules.finance.service import create_financing_transaction
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -110,20 +118,29 @@ def _get_valid_transition(from_status: str, to_status: str) -> str:
 def create_order(
     payload: OrderCreate,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.CONSUMER, Role.BULK_BUYER))],
+    current_user: Annotated[
+        User,
+        Depends(require_role(Role.CONSUMER, Role.BULK_BUYER)),
+    ],
 ) -> Order:
     """Create an order for a produce listing.
 
     Only CONSUMER or BULK_BUYER may create orders.
-    - produce_id must exist and be ACTIVE with enough stock
-    - farmer_id and unit_price come from the Produce listing
-    - total_amount = quantity * unit_price
-    - farmer cannot order their own produce
-    - produce quantity is reduced on success
+
+    BULK_BUYER financing behavior:
+    - NONE: normal order creation
+    - PLATFORM: an ACTIVE financing relationship is required
+    - PLATFORM orders create a FinancingTransaction for the order total
+
+    Order creation and financing transaction creation are committed
+    atomically.
     """
 
     # 1. Find the produce listing
-    produce = db.scalar(select(Produce).where(Produce.id == payload.produce_id))
+    produce = db.scalar(
+        select(Produce).where(Produce.id == payload.produce_id)
+    )
+
     if produce is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -139,10 +156,14 @@ def create_order(
 
     # 3. Validate quantity
     quantity = payload.quantity
+
     if produce.quantity < quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Only {produce.quantity} {produce.unit} available, requested {quantity}",
+            detail=(
+                f"Only {produce.quantity} {produce.unit} available, "
+                f"requested {quantity}"
+            ),
         )
 
     # 4. Prevent farmer from ordering their own produce
@@ -152,19 +173,93 @@ def create_order(
             detail="You cannot order your own produce",
         )
 
-    # 5. Check farmer is APPROVED (marketplace eligibility)
-    if _get_farmer_verification_status(db, produce.farmer_id) != VerificationStatus.APPROVED.value:
+    # 5. Check farmer is APPROVED
+    if (
+        _get_farmer_verification_status(db, produce.farmer_id)
+        != VerificationStatus.APPROVED.value
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Produce listing is not available for ordering",
         )
 
-    # 6. Get farmer_id and unit_price from the producing farmer
+    # 6. Get authoritative pricing
     farmer_id = produce.farmer_id
     unit_price = produce.price_per_unit
     total_amount = quantity * unit_price
 
-    # 7. Create the order
+    # 7. Determine financing requirement
+    financing_relationship = None
+
+    if current_user.role == Role.BULK_BUYER.value:
+        buyer_profile = db.scalar(
+            select(BuyerProfile).where(
+                BuyerProfile.user_id == current_user.id
+            )
+        )
+
+        financing_preference = (
+            buyer_profile.financing_preference
+            if buyer_profile is not None
+            else "NONE"
+        )
+
+        if financing_preference == "PLATFORM":
+            if payload.relationship_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "An active financing relationship is required "
+                        "for platform-financed orders"
+                    ),
+                )
+
+            financing_relationship = db.scalar(
+                select(FinancingRelationship).where(
+                    FinancingRelationship.id == payload.relationship_id
+                )
+            )
+
+            if financing_relationship is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Financing relationship not found",
+                )
+
+            if financing_relationship.buyer_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "You are not authorized to use this "
+                        "financing relationship"
+                    ),
+                )
+
+            if financing_relationship.status != "ACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Financing relationship is not active",
+                )
+
+        elif payload.relationship_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "A financing relationship can only be used "
+                    "with platform financing"
+                ),
+            )
+
+    elif payload.relationship_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "A financing relationship can only be used "
+                "by a bulk buyer"
+            ),
+        )
+
+    # 8. Create the order
     order = Order(
         produce_id=payload.produce_id,
         buyer_id=current_user.id,
@@ -175,12 +270,36 @@ def create_order(
         status=OrderStatus.PENDING.value,
     )
 
-    # 8. Reduce produce stock
+    # 9. Reduce stock
     produce.quantity -= quantity
 
     db.add(order)
+
     try:
+        # Get order.id without committing.
+        db.flush()
+
+        # 10. Create financing transaction when required.
+        if financing_relationship is not None:
+            create_financing_transaction(
+                db,
+                FinancingTransactionCreate(
+                    relationship_id=financing_relationship.id,
+                    order_id=order.id,
+                    principal=str(total_amount),
+                ),
+            )
+
+        # 11. Commit order + stock + financing transaction together.
         db.commit()
+
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
     except Exception:
         db.rollback()
         raise HTTPException(

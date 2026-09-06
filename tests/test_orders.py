@@ -7,7 +7,15 @@ Run from the backend/ directory:   pytest
 from fastapi.testclient import TestClient
 
 from tests.test_auth import auth_headers, obtain_token, register_user
+from app.core.database import SessionLocal
+from app.models.buyer import BuyerProfile
+from app.models.user import User
+from app.modules.finance.models import FinancingRelationship
 
+from decimal import Decimal
+
+from app.core.security import decode_access_token
+from app.modules.finance.models import FinancingTransaction
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -648,3 +656,205 @@ def test_order_stock_atomic(client: TestClient):
     # Stock should still be 0
     resp = client.get(f"/api/produce/{produce['id']}", headers=auth_headers(farmer_token))
     assert resp.json()["quantity"] == 0
+
+def test_bulk_buyer_platform_financing_creates_transaction(client: TestClient):
+    farmer_token, produce = register_farmer_with_produce(
+        client,
+        quantity=100,
+        price_per_unit=25.0,
+    )
+
+    register_user(
+        client,
+        email="financed_buyer@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="financed_buyer@example.com",
+    )
+
+    buyer_id = int(
+        decode_access_token(buyer_token)["sub"]
+    )
+
+    db = SessionLocal()
+    try:
+        profile = BuyerProfile(
+            user_id=buyer_id,
+            financing_preference="PLATFORM",
+        )
+
+        relationship = FinancingRelationship(
+            buyer_id=buyer_id,
+            financier_id=999,
+            credit_limit=1000,
+            interest_rate=10,
+            tenure_days=90,
+            status="ACTIVE",
+        )
+
+        db.add(profile)
+        db.add(relationship)
+        db.commit()
+        db.refresh(relationship)
+
+        relationship_id = relationship.id
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/orders",
+        headers=auth_headers(buyer_token),
+        json={
+            "produce_id": produce["id"],
+            "quantity": 20,
+            "relationship_id": relationship_id,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    order = response.json()
+    assert order["quantity"] == 20
+    assert order["total_amount"] == 500.0
+
+    db = SessionLocal()
+    try:
+        transactions = (
+            db.query(FinancingTransaction)
+            .filter(
+                FinancingTransaction.relationship_id == relationship_id
+            )
+            .all()
+        )
+
+        assert len(transactions) == 1
+        assert transactions[0].order_id == order["id"]
+        assert transactions[0].principal == Decimal("500.00")
+        assert transactions[0].status == "ACTIVE"
+    finally:
+        db.close()
+
+def test_platform_financing_failure_rolls_back_order_and_stock(
+    client: TestClient,
+):
+    farmer_token, produce = register_farmer_with_produce(
+        client,
+        quantity=100,
+        price_per_unit=25.0,
+    )
+
+    register_user(
+        client,
+        email="limited_buyer@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="limited_buyer@example.com",
+    )
+
+    buyer_id = int(
+        decode_access_token(buyer_token)["sub"]
+    )
+
+    db = SessionLocal()
+    try:
+        db.add(
+            BuyerProfile(
+                user_id=buyer_id,
+                financing_preference="PLATFORM",
+            )
+        )
+
+        relationship = FinancingRelationship(
+            buyer_id=buyer_id,
+            financier_id=999,
+            credit_limit=100,
+            interest_rate=10,
+            tenure_days=90,
+            status="ACTIVE",
+        )
+
+        db.add(relationship)
+        db.commit()
+        db.refresh(relationship)
+
+        relationship_id = relationship.id
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/orders",
+        headers=auth_headers(buyer_token),
+        json={
+            "produce_id": produce["id"],
+            "quantity": 20,
+            "relationship_id": relationship_id,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "capacity" in response.json()["detail"].lower()
+
+    # Stock must remain unchanged.
+    stock_response = client.get(
+        f"/api/produce/{produce['id']}",
+        headers=auth_headers(farmer_token),
+    )
+
+    assert stock_response.status_code == 200
+    assert stock_response.json()["quantity"] == 100
+
+    # No order should have been persisted.
+    orders_response = client.get(
+        "/api/orders",
+        headers=auth_headers(buyer_token),
+    )
+
+    assert orders_response.status_code == 200
+    assert orders_response.json() == []
+
+def test_platform_financing_requires_active_relationship(
+    client: TestClient,
+):
+    farmer_token, produce = register_farmer_with_produce(client)
+
+    register_user(
+        client,
+        email="platform_without_relationship@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="platform_without_relationship@example.com",
+    )
+
+    buyer_id = int(
+        decode_access_token(buyer_token)["sub"]
+    )
+
+    db = SessionLocal()
+    try:
+        db.add(
+            BuyerProfile(
+                user_id=buyer_id,
+                financing_preference="PLATFORM",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/orders",
+        headers=auth_headers(buyer_token),
+        json={
+            "produce_id": produce["id"],
+            "quantity": 10,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "relationship" in response.json()["detail"].lower()

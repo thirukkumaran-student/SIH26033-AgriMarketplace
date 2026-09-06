@@ -13,6 +13,11 @@ from app.models.consumer import ConsumerProfile
 from app.models.dispute import Dispute
 from app.models.buyer import BuyerProfile
 from app.models.financier import FinancierProfile
+from app.modules.finance.models import (
+    FinancingRelationship,
+    FinancingRequest,
+    FinancingTransaction,
+)
 
 __all__ = [
     "User",

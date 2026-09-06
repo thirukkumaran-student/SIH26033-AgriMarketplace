@@ -9,6 +9,7 @@ Covers:
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.orm import relationship
 
 from app.core.database import SessionLocal
 from app.models.user import User
@@ -99,6 +100,23 @@ def register_admin(client: TestClient) -> str:
         client,
         email="admin_financier@example.com",
     )
+
+def create_financing_request(
+    client: TestClient,
+    buyer_token: str,
+    financier_id: int,
+) -> dict:
+    """Create a financing request for a buyer."""
+    response = client.post(
+        "/api/finance/requests",
+        headers=auth_headers(buyer_token),
+        json={
+            "financier_id": financier_id,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 def approve_financier(
@@ -311,6 +329,55 @@ def test_financier_without_documents_is_not_discoverable(client: TestClient):
     assert response.status_code == 200, response.text
     assert response.json() == []
 
+# ---------------------------------------------------------------------------
+# FINANCING REQUESTS
+# ---------------------------------------------------------------------------
+
+
+def test_bulk_buyer_can_view_own_financing_requests(client: TestClient):
+    financier_token = register_financier(
+        client,
+        email="request_financier@example.com",
+    )
+
+    financier_id = get_user_id("request_financier@example.com")
+
+    register_user(
+        client,
+        email="request_buyer@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="request_buyer@example.com",
+    )
+
+    request_body = create_financing_request(
+        client,
+        buyer_token,
+        financier_id,
+    )
+
+    assert request_body["buyer_id"] == get_user_id(
+        "request_buyer@example.com"
+    )
+    assert request_body["financier_id"] == financier_id
+    assert request_body["status"] == "PENDING"
+
+    response = client.get(
+        "/api/finance/requests",
+        headers=auth_headers(buyer_token),
+    )
+
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+
+    assert len(body) == 1
+    assert body[0]["id"] == request_body["id"]
+    assert body[0]["buyer_id"] == request_body["buyer_id"]
+    assert body[0]["financier_id"] == financier_id
+    assert body[0]["status"] == "PENDING"
 
 # ---------------------------------------------------------------------------
 # DISCOVERY RBAC
@@ -370,3 +437,128 @@ def test_unauthenticated_cannot_discover_financiers(client: TestClient):
     response = client.get("/api/financier/")
 
     assert response.status_code == 401
+
+def test_bulk_buyer_can_view_and_select_approved_financing_offer(
+    client: TestClient,
+):
+    financier_token = register_financier(
+        client,
+        email="offer_financier@example.com",
+    )
+
+    financier_id = get_user_id("offer_financier@example.com")
+
+    register_user(
+        client,
+        email="offer_buyer@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="offer_buyer@example.com",
+    )
+
+    request_body = create_financing_request(
+        client,
+        buyer_token,
+        financier_id,
+    )
+
+    request_id = request_body["id"]
+
+    # Financier approves the request.
+    response = client.post(
+        f"/api/finance/requests/{request_id}/approve",
+        headers=auth_headers(financier_token),
+        json={
+            "credit_limit": 100000,
+            "interest_rate": 10,
+            "tenure_days": 90,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+
+    approved_body = response.json()
+
+    assert approved_body["status"] == "APPROVED"
+    assert approved_body["credit_limit"] == "100000.00"
+    assert approved_body["interest_rate"] == "10.00"
+    assert approved_body["tenure_days"] == 90
+
+    # Buyer can now see the approved offer.
+    response = client.get(
+        "/api/finance/requests",
+        headers=auth_headers(buyer_token),
+    )
+
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+
+    assert len(body) == 1
+    assert body[0]["id"] == request_id
+    assert body[0]["status"] == "APPROVED"
+    assert body[0]["credit_limit"] == "100000.00"
+    assert body[0]["interest_rate"] == "10.00"
+    assert body[0]["tenure_days"] == 90
+
+    # Buyer selects the offer.
+    response = client.post(
+        f"/api/finance/requests/{request_id}/select",
+        headers=auth_headers(buyer_token),
+    )
+
+    assert response.status_code == 200, response.text
+
+    relationship = response.json()
+
+    assert relationship["buyer_id"] == get_user_id(
+        "offer_buyer@example.com"
+    )
+    assert relationship["financier_id"] == financier_id
+    assert relationship["credit_limit"] == "100000.00"
+    assert relationship["interest_rate"] == "10.00"
+    assert relationship["tenure_days"] == 90
+    assert relationship["status"] == "ACTIVE"
+
+def test_financier_can_view_only_requests_sent_to_them(
+    client: TestClient,
+):
+    financier_token = register_financier(
+        client,
+        email="requests_owner@example.com",
+    )
+
+    financier_id = get_user_id("requests_owner@example.com")
+
+    register_user(
+        client,
+        email="request_sender@example.com",
+        role="BULK_BUYER",
+    )
+    buyer_token = obtain_token(
+        client,
+        email="request_sender@example.com",
+    )
+
+    create_financing_request(
+        client,
+        buyer_token,
+        financier_id,
+    )
+
+    response = client.get(
+        "/api/finance/requests",
+        headers=auth_headers(financier_token),
+    )
+
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+
+    assert len(body) == 1
+    assert body[0]["financier_id"] == financier_id
+    assert body[0]["buyer_id"] == get_user_id(
+        "request_sender@example.com"
+    )
