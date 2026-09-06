@@ -11,5 +11,16 @@ from app.models.order import Order
 from app.models.shipment import Shipment
 from app.models.consumer import ConsumerProfile
 from app.models.dispute import Dispute
+from app.models.buyer import BuyerProfile
 
-__all__ = ["User", "FarmerProfile", "VerificationDocument", "Produce", "Order", "Shipment", "ConsumerProfile", "Dispute"]
+__all__ = [
+    "User",
+    "FarmerProfile",
+    "VerificationDocument",
+    "Produce",
+    "Order",
+    "Shipment",
+    "ConsumerProfile",
+    "Dispute",
+    "BuyerProfile",
+]
