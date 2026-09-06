@@ -23,7 +23,7 @@ from app.modules.consumer.routes import router as consumer_router
 from app.modules.consumer.marketplace_routes import router as marketplace_router
 from app.modules.consumer.tracking_routes import router as tracking_router
 from app.modules.consumer.dispute_routes import router as consumer_dispute_router
-
+from app.modules.buyer.routes import router as buyer_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -63,6 +63,7 @@ app.include_router(tracking_router)
 app.include_router(consumer_dispute_router)
 app.include_router(admin_dispute_router)
 app.include_router(admin_monitoring_router)
+app.include_router(buyer_router)
 
 
 @app.get("/", tags=["meta"], summary="Health check")
