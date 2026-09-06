@@ -286,6 +286,41 @@ def test_stock_cannot_become_negative(client: TestClient):
     )
     assert resp.status_code == 409
 
+# -------------------------------------------------------------
+# Order review
+# -------------------------------------------------------------
+
+def test_bulk_buyer_can_review(client: TestClient):
+    """BULK_BUYER can use the shared order review endpoint."""
+    farmer_token, produce = register_farmer_with_produce(
+        client,
+        quantity=100,
+        price_per_unit=25.0,
+    )
+    register_user(client, email="bulk@example.com", role="BULK_BUYER")
+    buyer_token = obtain_token(client, email="bulk@example.com")
+
+    resp = client.post(
+        "/api/orders/review",
+        headers=auth_headers(buyer_token),
+        json={"produce_id": produce["id"], "quantity": 20},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["produce_id"] == produce["id"]
+    assert body["quantity"] == 20
+    assert body["unit_price"] == 25.0
+    assert body["total_amount"] == 500.0
+    assert body["available_stock"] == 100
+
+    # Reviewing an order must not reduce stock.
+    resp = client.get(
+        f"/api/produce/{produce['id']}",
+        headers=auth_headers(farmer_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["quantity"] == 100
 
 # ---------------------------------------------------------------------------
 # View orders

@@ -206,7 +206,7 @@ def create_order(
 def review_order(
     payload: OrderReviewRequest,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.CONSUMER))],
+    current_user: Annotated[User, Depends(require_role(Role.CONSUMER, Role.BULK_BUYER))],
 ) -> dict:
     """Review the current purchase details before finalizing.
 

@@ -131,9 +131,10 @@ def test_farmer_cannot_review(client: TestClient):
     assert resp.status_code == 403
 
 
-def test_bulk_buyer_cannot_review(client: TestClient):
-    """BULK_BUYER gets 403 on review endpoint."""
+def test_bulk_buyer_can_review(client: TestClient):
+    """BULK_BUYER can use the shared order review endpoint."""
     farmer_token, produce = _register_and_approve_farmer(client)
+
     register_user(client, email="bulk@example.com", role="BULK_BUYER")
     token = obtain_token(client, email="bulk@example.com")
 
@@ -142,7 +143,12 @@ def test_bulk_buyer_cannot_review(client: TestClient):
         headers=auth_headers(token),
         json={"produce_id": produce["id"], "quantity": 5},
     )
-    assert resp.status_code == 403
+
+    assert resp.status_code == 200, resp.text
+
+    body = resp.json()
+    assert body["produce_id"] == produce["id"]
+    assert body["quantity"] == 5
 
 
 def test_financier_cannot_review(client: TestClient):
