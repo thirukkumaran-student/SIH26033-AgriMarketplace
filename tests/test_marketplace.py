@@ -153,16 +153,46 @@ def test_farmer_cannot_access_marketplace(client: TestClient):
     assert resp_detail.status_code == 403
 
 
-def test_bulk_buyer_cannot_access_marketplace(client: TestClient):
-    """BULK_BUYER role receives 403 on marketplace endpoints."""
-    register_user(client, email="buyer_forbidden@example.com", role="BULK_BUYER")
-    token = obtain_token(client, email="buyer_forbidden@example.com")
+def test_bulk_buyer_can_access_marketplace(client: TestClient):
+    """BULK_BUYER can access the shared marketplace."""
+    register_user(
+        client,
+        email="buyer_marketplace@example.com",
+        name="Test Bulk Buyer",
+        role="BULK_BUYER",
+    )
+    token = obtain_token(client, email="buyer_marketplace@example.com")
 
-    resp = client.get("/api/marketplace/produce", headers=auth_headers(token))
-    assert resp.status_code == 403
+    response = client.get(
+        "/api/marketplace/produce",
+        headers=auth_headers(token),
+    )
 
-    resp_detail = client.get("/api/marketplace/produce/1", headers=auth_headers(token))
-    assert resp_detail.status_code == 403
+    assert response.status_code == 200, response.text
+    assert isinstance(response.json(), list)
+
+
+def test_bulk_buyer_can_access_marketplace_detail(client: TestClient):
+    """BULK_BUYER passes marketplace detail authorization."""
+    register_user(
+        client,
+        email="buyer_marketplace_detail@example.com",
+        name="Test Bulk Buyer",
+        role="BULK_BUYER",
+    )
+    token = obtain_token(
+        client,
+        email="buyer_marketplace_detail@example.com",
+    )
+
+    response = client.get(
+        "/api/marketplace/produce/1",
+        headers=auth_headers(token),
+    )
+
+    # Produce 1 may not exist in this isolated test database.
+    # 404 means authorization succeeded; 403 means role was rejected.
+    assert response.status_code != 403
 
 
 def test_financier_cannot_access_marketplace(client: TestClient):

@@ -68,7 +68,7 @@ def _is_marketplace_eligible(db: Session, produce: Produce) -> bool:
 )
 def list_marketplace_produce(
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.CONSUMER))],
+    current_user: Annotated[User, Depends(require_role(Role.CONSUMER, Role.BULK_BUYER))],
     crop: str | None = Query(default=None, description="Filter by crop name"),
     location: str | None = Query(default=None, description="Filter by location"),
     max_price: float | None = Query(default=None, ge=0, description="Maximum price per unit"),
@@ -112,7 +112,7 @@ def list_marketplace_produce(
 def get_marketplace_produce(
     produce_id: int,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.CONSUMER))],
+    current_user: Annotated[User, Depends(require_role(Role.CONSUMER, Role.BULK_BUYER))],
 ) -> MarketplaceProduceResponse:
     """Return a produce detail only if it is marketplace-eligible.
 
