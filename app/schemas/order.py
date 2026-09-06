@@ -24,6 +24,18 @@ class OrderCreate(BaseModel):
     quantity: int = Field(gt=0, description="Quantity to order (> 0)")
 
 
+class OrderReviewRequest(BaseModel):
+    """Payload for POST /api/orders/review.
+
+    Consumer provides only:
+    - produce_id (which listing to review)
+    - quantity (how many units to review)
+    """
+
+    produce_id: int = Field(gt=0, description="Produce listing id to review")
+    quantity: int = Field(gt=0, description="Quantity to review (> 0)")
+
+
 class OrderStatusUpdate(BaseModel):
     """Payload for PATCH /api/orders/{order_id}/status.
 
@@ -53,3 +65,23 @@ class OrderResponse(BaseModel):
     status: OrderStatus
     created_at: datetime
     updated_at: datetime
+
+
+class OrderReviewResponse(BaseModel):
+    """Read-only checkout review response.
+
+    Contains the calculated order review information without any
+    order creation or stock mutation. The consumer can review this
+    before confirming via POST /api/orders.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    produce_id: int
+    crop: str
+    quantity: int
+    unit_price: float
+    total_amount: float
+    unit: str
+    available_stock: int
+    status: str

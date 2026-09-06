@@ -15,8 +15,14 @@ from app.modules.farmer.routes import profile_router as farmer_profile_router
 from app.modules.farmer.routes import verification_router as verification_router
 from app.modules.farmer.shipments_routes import router as farmer_shipments_router
 from app.modules.admin.routes import router as admin_router
+from app.modules.admin.dispute_routes import router as admin_dispute_router
+from app.modules.admin.monitoring_routes import router as admin_monitoring_router
 from app.modules.produce.routes import router as produce_router
 from app.modules.orders.routes import router as orders_router
+from app.modules.consumer.routes import router as consumer_router
+from app.modules.consumer.marketplace_routes import router as marketplace_router
+from app.modules.consumer.tracking_routes import router as tracking_router
+from app.modules.consumer.dispute_routes import router as consumer_dispute_router
 
 
 @asynccontextmanager
@@ -51,6 +57,12 @@ app.include_router(farmer_shipments_router)
 app.include_router(admin_router)
 app.include_router(produce_router)
 app.include_router(orders_router)
+app.include_router(consumer_router)
+app.include_router(marketplace_router)
+app.include_router(tracking_router)
+app.include_router(consumer_dispute_router)
+app.include_router(admin_dispute_router)
+app.include_router(admin_monitoring_router)
 
 
 @app.get("/", tags=["meta"], summary="Health check")

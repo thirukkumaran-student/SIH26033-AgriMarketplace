@@ -86,3 +86,28 @@ class AdminActionResponse(BaseModel):
     reviewed_at: datetime
     documents_updated: int
     remarks: str | None = None
+
+
+class MonitoringDatabase(BaseModel):
+    """Database connectivity status for the monitoring endpoint.
+
+    Only exposes a safe status string and a boolean error flag — never the
+    underlying connection string or exception details.
+    """
+
+    status: str  # "connected" | "unavailable"
+    error: bool = False
+
+
+class MonitoringResponse(BaseModel):
+    """Response body for GET /api/admin/monitoring.
+
+    Deliberately exposes NO secrets: no DB URL, credentials, JWT secrets,
+    .env contents, or private user data.
+    """
+
+    application: str
+    version: str
+    status: str  # "ok" | "degraded"
+    timestamp: datetime
+    database: MonitoringDatabase

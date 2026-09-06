@@ -16,17 +16,18 @@ These transitions are enforced; others return 422.
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.enums import OrderStatus, ProduceStatus, Role
+from app.core.enums import OrderStatus, ProduceStatus, Role, VerificationStatus
+from app.models.farmer import VerificationDocument
 from app.models.order import Order
 from app.models.produce import Produce
 from app.models.user import User
 from app.modules.auth.dependencies import get_current_user, require_role
-from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.schemas.order import OrderCreate, OrderReviewRequest, OrderReviewResponse, OrderResponse, OrderStatusUpdate
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -41,6 +42,20 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.PENDING.value: {OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value},
     OrderStatus.CONFIRMED.value: {OrderStatus.COMPLETED.value},
 }
+
+
+def _get_farmer_verification_status(db: Session, farmer_id: int) -> str:
+    docs = list(db.scalars(
+        select(VerificationDocument).where(VerificationDocument.user_id == farmer_id)
+    ).all())
+    if not docs:
+        return "UNVERIFIED"
+    statuses = {d.status for d in docs}
+    if VerificationStatus.PENDING.value in statuses:
+        return VerificationStatus.PENDING.value
+    if all(d.status == VerificationStatus.APPROVED.value for d in docs):
+        return VerificationStatus.APPROVED.value
+    return VerificationStatus.REJECTED.value
 
 
 def _order_should_show_to_user(order: Order, user: User) -> bool:
@@ -137,12 +152,19 @@ def create_order(
             detail="You cannot order your own produce",
         )
 
-    # 5. Get farmer_id and unit_price from the producing farmer
+    # 5. Check farmer is APPROVED (marketplace eligibility)
+    if _get_farmer_verification_status(db, produce.farmer_id) != VerificationStatus.APPROVED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Produce listing is not available for ordering",
+        )
+
+    # 6. Get farmer_id and unit_price from the producing farmer
     farmer_id = produce.farmer_id
     unit_price = produce.price_per_unit
     total_amount = quantity * unit_price
 
-    # 6. Create the order
+    # 7. Create the order
     order = Order(
         produce_id=payload.produce_id,
         buyer_id=current_user.id,
@@ -153,7 +175,7 @@ def create_order(
         status=OrderStatus.PENDING.value,
     )
 
-    # 7. Reduce produce stock
+    # 8. Reduce produce stock
     produce.quantity -= quantity
 
     db.add(order)
@@ -168,6 +190,85 @@ def create_order(
 
     db.refresh(order)
     return order
+
+
+# ---------------------------------------------------------------------------
+# POST /api/orders/review  —  order review
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/review",
+    response_model=OrderReviewResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Review an order before placing it",
+)
+def review_order(
+    payload: OrderReviewRequest,
+    db: DbSession,
+    current_user: Annotated[User, Depends(require_role(Role.CONSUMER))],
+) -> dict:
+    """Review the current purchase details before finalizing.
+
+    This is a read-only operation:
+    - validates produce eligibility and availability
+    - validates requested quantity against stock
+    - calculates unit_price and total_amount from the DB Produce record
+    - does NOT create an order and does NOT decrease stock
+
+    The consumer can then confirm via POST /api/orders.
+    """
+    # 1. Find the produce listing
+    produce = db.scalar(select(Produce).where(Produce.id == payload.produce_id))
+    if produce is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Produce listing with id={payload.produce_id} not found",
+        )
+
+    # 2. Check produce is available
+    if produce.status != ProduceStatus.ACTIVE.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Produce listing is not available for ordering",
+        )
+
+    # 3. Validate quantity against available stock
+    quantity = payload.quantity
+    if produce.quantity < quantity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Only {produce.quantity} {produce.unit} available, requested {quantity}",
+        )
+
+    # 4. Prevent farmer from ordering their own produce
+    if produce.farmer_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot order your own produce",
+        )
+
+    # 5. Check farmer is APPROVED (marketplace eligibility)
+    if _get_farmer_verification_status(db, produce.farmer_id) != VerificationStatus.APPROVED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Produce listing is not available for ordering",
+        )
+
+    # 6. Calculate from DB authoritative values
+    unit_price = produce.price_per_unit
+    total_amount = quantity * unit_price
+
+    return OrderReviewResponse(
+        produce_id=produce.id,
+        crop=produce.crop,
+        quantity=quantity,
+        unit_price=unit_price,
+        total_amount=total_amount,
+        unit=produce.unit,
+        available_stock=produce.quantity,
+        status=produce.status,
+    )
 
 
 # ---------------------------------------------------------------------------

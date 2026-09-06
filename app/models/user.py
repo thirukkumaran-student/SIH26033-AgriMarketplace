@@ -15,6 +15,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.farmer import FarmerProfile, VerificationDocument
+    from app.models.consumer import ConsumerProfile
 from app.core.enums import Role
 
 # Comma separated list of quoted values, e.g. 'FARMER', 'CONSUMER', ...
@@ -45,6 +46,7 @@ class User(Base):
 
     # ORM relationships (lazy-loaded, imported only for type checking above)
     farmer_profile: Mapped["FarmerProfile | None"] = relationship(back_populates="user", uselist=False)
+    consumer_profile: Mapped["ConsumerProfile | None"] = relationship(back_populates="user", uselist=False)
     # verification_documents relationship removed to avoid FK ambiguity
     # (user_id + reviewed_by both point to users.id). Use explicit queries instead.
 
