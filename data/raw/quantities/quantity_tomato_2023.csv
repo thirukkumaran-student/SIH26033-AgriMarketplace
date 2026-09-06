@@ -1,0 +1,5 @@
+t,cmdty,state_id,state,market_id,market_name,state_name,district_id,district_name,qty
+"2023-11-15","Tomato","33","Tamil Nadu","1629","Dindigul","Tamil Nadu","612","Dindigul","1.8"
+"2023-11-08","Tomato","33","Tamil Nadu","3697","Karumanturai","Tamil Nadu","608","Salem","3.4"
+"2023-11-03","Tomato","33","Tamil Nadu","1629","Dindigul","Tamil Nadu","612","Dindigul","0.42"
+"2023-10-31","Tomato","33","Tamil Nadu","3697","Karumanturai","Tamil Nadu","608","Salem","4.2"
