@@ -25,6 +25,9 @@ from app.modules.consumer.dispute_routes import router as consumer_dispute_route
 from app.modules.buyer.routes import router as buyer_router
 from app.modules.financier.routes import router as financier_router
 from app.modules.finance.router import router as finance_router
+from app.modules.logistics.routes import router as logistics_router
+from app.modules.forecast.routes import router as forecast_router
+from app.modules.suggestion.routes import router as suggestion_router
 
 
 @asynccontextmanager
@@ -61,6 +64,9 @@ app.include_router(admin_monitoring_router)
 app.include_router(buyer_router)
 app.include_router(financier_router)
 app.include_router(finance_router)
+app.include_router(logistics_router)
+app.include_router(forecast_router)
+app.include_router(suggestion_router)
 
 
 @app.get("/", tags=["meta"], summary="Health check")
