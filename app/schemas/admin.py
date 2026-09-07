@@ -58,7 +58,7 @@ class AdminVerificationDetailResponse(BaseModel):
 
     user_id: int
     farmer_name: str
-    farmer_email: str
+    farmer_email: str | None = None
     overall_status: str
     profile: AdminFarmerProfileResponse | None
     documents: list[AdminVerificationDocumentResponse]
@@ -69,7 +69,7 @@ class AdminVerificationQueueItem(BaseModel):
 
     user_id: int
     farmer_name: str
-    farmer_email: str
+    farmer_email: str | None = None
     overall_status: str
     document_count: int
     earliest_submission: datetime

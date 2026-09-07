@@ -3,6 +3,14 @@
 Exactly ONE ``users`` table exists for every role (FARMER, CONSUMER,
 BULK_BUYER, FINANCIER, LOGISTICS, ADMIN). Feature modules must never create
 their own user tables or authentication systems.
+
+The login identifier varies by role:
+- FARMER logs in with ``phone`` (email is optional)
+- every other role logs in with ``email`` (phone is not used)
+
+``email`` and ``phone`` are both optional at the database level so that a
+farmer without an email (or a future user without a phone) can exist, but
+every user must have at least one of them.
 """
 
 from datetime import datetime
@@ -28,12 +36,23 @@ class User(Base):
     __table_args__ = (
         # Database-level guard so an invalid role can never be stored.
         CheckConstraint(f"role IN ({VALID_ROLE_VALUES})", name="ck_users_role"),
+        # Every user must have at least one login identifier.
+        CheckConstraint(
+            "email IS NOT NULL OR phone IS NOT NULL",
+            name="ck_users_identifier",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True, index=True
+    # Nullable so farmers can register with phone only. Unique when present.
+    email: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True, index=True
+    )
+    # Nullable for non-farmers. Unique when present. This is the auth
+    # identifier for FARMER accounts (distinct from farmer_profiles.phone).
+    phone: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, unique=True, index=True
     )
     # NEVER a plaintext password. Only the bcrypt hash lives in the database.
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -52,4 +71,4 @@ class User(Base):
 
     def __repr__(self) -> str:
         # Custom repr: never include the password hash by accident.
-        return f"<User id={self.id} email={self.email!r} role={self.role!r}>"
+        return f"<User id={self.id} email={self.email!r} phone={self.phone!r} role={self.role!r}>"

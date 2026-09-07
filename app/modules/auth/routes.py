@@ -5,8 +5,12 @@
 - GET  /api/auth/me         -> current user (requires JWT)
 - GET  /api/auth/test-farmer / test-admin -> temporary RBAC demo endpoints
 
-The login flow never reveals whether the email or the password was wrong:
-both failures produce the exact same error response.
+Identifiers are role-specific:
+- FARMER  -> phone + password
+- other roles -> email + password
+
+The login flow never reveals whether the identifier or the password was
+wrong: both failures produce the exact same error response.
 """
 
 from typing import Annotated
@@ -28,6 +32,40 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 DbSession = Annotated[Session, Depends(get_db)]
 
 
+def _is_email_like(identifier: str) -> bool:
+    """Return True when the identifier looks like an email address."""
+    return "@" in identifier
+
+
+def _find_user_by_identifier(db: Session, identifier: str) -> User | None:
+    """Resolve an identifier to a user using the identifier's format.
+
+    Email-like identifiers are matched against ``users.email``; anything else
+    (a phone number) is normalized and matched against ``users.phone``.
+    Malformed phone identifiers simply resolve to no user.
+    """
+    if _is_email_like(identifier):
+        return db.scalar(select(User).where(User.email == identifier.strip().lower()))
+    try:
+        from app.schemas.user import normalize_phone
+
+        phone = normalize_phone(identifier)
+    except ValueError:
+        return None
+    return db.scalar(select(User).where(User.phone == phone))
+
+
+def _identifier_matches_role(user: User, identifier: str) -> bool:
+    """Enforce the role-specific login identifier contract.
+
+    FARMER must authenticate with a phone number; every other role must
+    authenticate with an email address.
+    """
+    if user.role == Role.FARMER.value:
+        return not _is_email_like(identifier)
+    return _is_email_like(identifier)
+
+
 @router.post(
     "/register",
     response_model=UserPublic,
@@ -35,19 +73,34 @@ DbSession = Annotated[Session, Depends(get_db)]
     summary="Register a new user",
 )
 def register(payload: UserRegister, db: DbSession) -> User:
-    """Create a user for any supported role. Email is normalized + unique."""
-    email = payload.email  # already lowercased/trimmed by the schema validator
+    """Create a user for any supported role.
 
-    existing_user = db.scalar(select(User).where(User.email == email))
-    if existing_user is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email is already registered",
-        )
+    FARMER: phone required (email optional). Others: email required.
+    Both identifiers are normalized and unique when present.
+    """
+    email = payload.email  # already lowercased/trimmed by the schema validator
+    phone = payload.phone  # already normalized by the schema validator
+
+    if email is not None:
+        existing = db.scalar(select(User).where(User.email == email))
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This email is already registered",
+            )
+
+    if phone is not None:
+        existing = db.scalar(select(User).where(User.phone == phone))
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This phone number is already registered",
+            )
 
     user = User(
         name=payload.name,
         email=email,
+        phone=phone,
         role=payload.role.value,  # store the enum value ("FARMER", ...)
         password_hash=hash_password(payload.password),  # never store plaintext
     )
@@ -56,11 +109,11 @@ def register(payload: UserRegister, db: DbSession) -> User:
     try:
         db.commit()
     except IntegrityError:
-        # Race condition: another request registered the same email first.
+        # Race condition: another request registered the same identifier first.
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Email is already registered",
+            detail="Identifier is already registered",
         )
 
     db.refresh(user)  # load the DB-generated created_at
@@ -70,18 +123,26 @@ def register(payload: UserRegister, db: DbSession) -> User:
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="Login with email and password, returns a JWT",
+    summary="Login with identifier and password, returns a JWT",
 )
 def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
-    """Verify credentials and return an access token + safe user info."""
-    user = db.scalar(select(User).where(User.email == payload.email))
+    """Verify credentials and return an access token + safe user info.
 
-    # One generic message for "unknown email" AND "wrong password" so the
-    # endpoint does not reveal which one caused the failure.
-    if user is None or not verify_password(payload.password, user.password_hash):
+    The identifier is a phone number for FARMER accounts and an email for
+    every other role; the format determines which lookup is used.
+    """
+    user = _find_user_by_identifier(db, payload.identifier)
+
+    # One generic message for "unknown identifier", "wrong identifier type",
+    # AND "wrong password" so the endpoint does not reveal which caused it.
+    if (
+        user is None
+        or not _identifier_matches_role(user, payload.identifier)
+        or not verify_password(payload.password, user.password_hash)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
