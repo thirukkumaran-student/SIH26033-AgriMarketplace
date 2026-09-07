@@ -1,8 +1,39 @@
 from ortools.constraint_solver import pywrapcp
 from ortools.constraint_solver import routing_enums_pb2
+SHIPMENT_STATES = [
+    "CREATED",
+    "ASSIGNED",
+    "PICKED_UP",
+    "IN_TRANSIT",
+    "DELIVERED",
+]
+
+ALLOWED_TRANSITIONS = {
+    "CREATED": "ASSIGNED",
+    "ASSIGNED": "PICKED_UP",
+    "PICKED_UP": "IN_TRANSIT",
+    "IN_TRANSIT": "DELIVERED",
+}
 
 
 class LogisticsService:
+    def transition_shipment(self, shipment, next_status):
+        current_status = shipment.status
+
+        if current_status == next_status:
+            raise ValueError(
+                f"Shipment is already in {current_status} status."
+            )
+
+        expected_status = ALLOWED_TRANSITIONS.get(current_status)
+
+        if expected_status != next_status:
+            raise ValueError(
+                f"Invalid transition: {current_status} -> {next_status}"
+            )
+
+        shipment.status = next_status
+        return shipment
 
     def optimize_route(
         self,
