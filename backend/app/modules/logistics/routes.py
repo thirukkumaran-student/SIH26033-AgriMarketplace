@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.database import get_db
 from .models import Shipment
 from .service import logistics_service
-
+from .handoff import Handoff
 
 router = APIRouter(
     prefix="/api/logistics",
@@ -45,6 +46,24 @@ class RouteOptimizeResponse(BaseModel):
     route: list[int]
     total_distance: int
 
+class HandoffCreateRequest(BaseModel):
+    from_party: str
+    to_party: str
+    location: str
+    remarks: str | None = None
+
+
+class HandoffResponse(BaseModel):
+    id: int
+    shipment_id: int
+    from_party: str
+    to_party: str
+    location: str
+    remarks: str | None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
 
 def update_shipment_status(
     shipment_id: int,
@@ -203,3 +222,58 @@ def get_shipments(
     db: Session = Depends(get_db),
 ):
     return db.query(Shipment).all()
+
+@router.post(
+    "/handoff/{shipment_id}",
+    response_model=HandoffResponse,
+)
+def create_handoff(
+    shipment_id: int,
+    request: HandoffCreateRequest,
+    db: Session = Depends(get_db),
+):
+    shipment = db.get(Shipment, shipment_id)
+
+    if shipment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Shipment not found.",
+        )
+
+    handoff = Handoff(
+        shipment_id=shipment_id,
+        from_party=request.from_party,
+        to_party=request.to_party,
+        location=request.location,
+        remarks=request.remarks,
+    )
+
+    db.add(handoff)
+    db.commit()
+    db.refresh(handoff)
+
+    return handoff
+
+
+@router.get(
+    "/handoff/{shipment_id}",
+    response_model=list[HandoffResponse],
+)
+def get_handoffs(
+    shipment_id: int,
+    db: Session = Depends(get_db),
+):
+    shipment = db.get(Shipment, shipment_id)
+
+    if shipment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Shipment not found.",
+        )
+
+    return (
+        db.query(Handoff)
+        .filter(Handoff.shipment_id == shipment_id)
+        .order_by(Handoff.timestamp)
+        .all()
+    )
