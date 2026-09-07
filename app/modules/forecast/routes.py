@@ -1,9 +1,14 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.forecast import Forecast
+from app.models.user import User
+from app.core.enums import Role
+from app.modules.auth.dependencies import require_role
 from .service import forecast_service
 
 
@@ -40,7 +45,7 @@ class TrainResponse(BaseModel):
 
 
 @router.post("/train", response_model=TrainResponse)
-def train_forecast():
+def train_forecast(current_user: Annotated[User, Depends(require_role(Role.ADMIN))]):
     try:
         result = forecast_service.train()
         return TrainResponse(**result)
@@ -61,6 +66,7 @@ def train_forecast():
 @router.post("/predict", response_model=ForecastResponse)
 def predict_forecast(
     request: ForecastRequest,
+    current_user: Annotated[User, Depends(require_role(Role.FARMER, Role.BULK_BUYER, Role.ADMIN))],
     db: Session = Depends(get_db),
 ):
     try:
@@ -107,6 +113,7 @@ def predict_forecast(
 
 @router.get("/", response_model=list[ForecastResponse])
 def get_forecasts(
+    current_user: Annotated[User, Depends(require_role(Role.FARMER, Role.BULK_BUYER, Role.ADMIN))],
     db: Session = Depends(get_db),
 ):
     forecasts = (

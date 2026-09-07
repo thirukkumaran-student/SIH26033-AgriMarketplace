@@ -1,0 +1,9 @@
+import { useState } from "react";
+import { PageHeading } from "../components/ui";
+import { createDispute } from "../api/admin";
+
+export default function DisputesPage() {
+  const [form,setForm]=useState({order_id:"",reason:"",description:""}); const [error,setError]=useState(""); const [success,setSuccess]=useState(""); const [working,setWorking]=useState(false);
+  async function submit(event){event.preventDefault();setWorking(true);setError("");setSuccess("");try{await createDispute({order_id:Number(form.order_id),reason:form.reason,description:form.description||null});setSuccess("Dispute submitted for admin review.");setForm({order_id:"",reason:"",description:""});}catch(err){setError(err.message);}finally{setWorking(false);}}
+  return <><PageHeading eyebrow="Order support" title="Raise a dispute" description="Consumers can dispute their own non-cancelled orders. Existing open disputes cannot be duplicated." /><section className="card"><div className="card-body">{error&&<div className="notice error">{error}</div>}{success&&<div className="notice">{success}</div>}<form className="stack" onSubmit={submit}><div className="field"><label htmlFor="dispute-order">Order ID</label><input id="dispute-order" type="number" min="1" required value={form.order_id} onChange={(e)=>setForm({...form,order_id:e.target.value})}/></div><div className="field"><label htmlFor="dispute-reason">Reason</label><input id="dispute-reason" required value={form.reason} onChange={(e)=>setForm({...form,reason:e.target.value})}/></div><div className="field"><label htmlFor="dispute-description">Description</label><textarea id="dispute-description" value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})}/></div><button className="button" disabled={working}>{working?"Submitting…":"Submit dispute"}</button></form></div></section></>;
+}

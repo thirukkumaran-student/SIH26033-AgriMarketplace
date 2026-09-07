@@ -7,8 +7,10 @@ Docs:      http://localhost:8000/docs
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401  (import registers all models on Base.metadata)
+from app.core.config import get_settings
 from app.modules.auth.routes import router as auth_router
 from app.modules.farmer.routes import profile_router as farmer_profile_router
 from app.modules.farmer.routes import verification_router as verification_router
@@ -28,6 +30,7 @@ from app.modules.finance.router import router as finance_router
 from app.modules.logistics.routes import router as logistics_router
 from app.modules.forecast.routes import router as forecast_router
 from app.modules.suggestion.routes import router as suggestion_router
+from app.modules.market_prices.routes import router as market_prices_router
 
 
 @asynccontextmanager
@@ -39,13 +42,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SIH26033 Backend",
     description=(
-        "Shared Authentication + RBAC foundation. One users table for all "
-        "roles (FARMER, CONSUMER, BULK_BUYER, FINANCIER, LOGISTICS, ADMIN). "
-        "Feature modules (Farmer, Consumer, Marketplace, ...) will be added "
-        "on top of this foundation."
+        "Integrated agricultural marketplace API with shared authentication, "
+        "role-based access, produce, orders, finance, logistics, forecasting, "
+        "administration, and CEDA Agmarknet market-price references."
     ),
     version="0.1.0",
     lifespan=lifespan,
+)
+
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.frontend_origin],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(auth_router)
@@ -67,6 +78,7 @@ app.include_router(finance_router)
 app.include_router(logistics_router)
 app.include_router(forecast_router)
 app.include_router(suggestion_router)
+app.include_router(market_prices_router)
 
 
 @app.get("/", tags=["meta"], summary="Health check")
