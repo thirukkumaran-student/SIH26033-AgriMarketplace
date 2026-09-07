@@ -113,7 +113,7 @@ class VerificationDocumentResponse(BaseModel):
 class VerificationStatusResponse(BaseModel):
     """Summary of the farmer's overall verification state."""
 
-    farmer_name: str
+    applicant_name: str
     user_id: int
     documents: list[VerificationDocumentResponse]
     overall_status: str

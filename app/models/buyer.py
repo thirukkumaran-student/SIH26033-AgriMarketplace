@@ -7,7 +7,7 @@ Authentication remains centralized in the shared users table.
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -18,6 +18,13 @@ if TYPE_CHECKING:
 
 class BuyerProfile(Base):
     __tablename__ = "buyer_profiles"
+
+    __table_args__ = (
+        CheckConstraint(
+            "financing_preference IN ('NONE', 'PLATFORM')",
+            name="ck_buyer_financing_preference",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,

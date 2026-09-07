@@ -50,7 +50,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 def create_profile(
     payload: FarmerProfileCreate,
     db: DbSession,
-    current_user: Annotated[User, Depends(require_role(Role.FARMER, Role.FINANCIER))],
+    current_user: Annotated[User, Depends(require_role(Role.FARMER)),],
 ) -> FarmerProfile:
     """Create a farmer profile.  Only one profile per farmer — duplicate creation returns 409."""
     existing = db.scalar(
@@ -200,7 +200,7 @@ def get_verification_status(
         overall = VerificationStatus.REJECTED.value
 
     return VerificationStatusResponse(
-        farmer_name=current_user.name,
+        applicant_name=current_user.name,
         user_id=current_user.id,
         documents=doc_responses,
         overall_status=overall,

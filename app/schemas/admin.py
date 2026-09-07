@@ -57,7 +57,7 @@ class AdminVerificationDetailResponse(BaseModel):
     """Full farmer verification details for admin review."""
 
     user_id: int
-    farmer_name: str
+    applicant_name: str
     farmer_email: str
     overall_status: str
     profile: AdminFarmerProfileResponse | None
@@ -68,7 +68,7 @@ class AdminVerificationQueueItem(BaseModel):
     """One item in the admin's verification queue."""
 
     user_id: int
-    farmer_name: str
+    applicant_name: str
     farmer_email: str
     overall_status: str
     document_count: int
@@ -79,7 +79,7 @@ class AdminActionResponse(BaseModel):
     """Response after approve / reject action."""
 
     user_id: int
-    farmer_name: str
+    applicant_name: str
     action: str
     new_status: VerificationStatus
     reviewed_by: int

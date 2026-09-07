@@ -7,8 +7,8 @@ Consumer, and other modules will read from this table.
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING
-
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from decimal import Decimal
+from sqlalchemy import DateTime, Numeric, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -28,7 +28,7 @@ class Produce(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     unit: Mapped[str] = mapped_column(String(30), nullable=False)  # kg, quintal, ton, etc.
-    price_per_unit: Mapped[float] = mapped_column(Float, nullable=False)
+    price_per_unit: Mapped[float] = mapped_column(Numeric(12,2), nullable=False)
     location: Mapped[str] = mapped_column(String(500), nullable=False)
     harvest_date: Mapped[date | None] = mapped_column(nullable=True)
     quality_grade: Mapped[str | None] = mapped_column(String(20), nullable=True)  # A, B, C, Premium

@@ -84,7 +84,7 @@ def test_admin_views_verification_details(client):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["user_id"] == farmer_id
-    assert body["farmer_name"] == "Test Farmer"
+    assert body["applicant_name"] == "Test Farmer"
     assert body["farmer_email"] == "farmer@example.com"
     assert body["overall_status"] == "PENDING"
     assert len(body["documents"]) >= 1

@@ -5,7 +5,7 @@ this later.
 """
 
 from datetime import datetime
-
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import ShipmentStatus
@@ -25,7 +25,7 @@ class ShipmentResponse(BaseModel):
     pickup_location: str
     destination: str
     estimated_delivery: datetime | None
-    logistics_cost: float
+    logistics_cost: Decimal
     created_at: datetime
     updated_at: datetime
 
@@ -44,6 +44,6 @@ class ShipmentDetailResponse(BaseModel):
     pickup_location: str
     destination: str
     estimated_delivery: datetime | None
-    logistics_cost: float
+    logistics_cost: Decimal
     created_at: datetime
     updated_at: datetime

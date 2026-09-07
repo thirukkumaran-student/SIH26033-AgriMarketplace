@@ -14,7 +14,14 @@ from sqlalchemy.orm import relationship
 from app.core.database import SessionLocal
 from app.models.user import User
 from tests.test_auth import auth_headers, obtain_token, register_user
+from decimal import Decimal
 
+from app.models.buyer import BuyerProfile
+from app.models.order import Order
+from app.modules.finance.models import (
+    FinancingRelationship,
+    FinancingTransaction,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -9,8 +9,8 @@ will use.
 
 from datetime import datetime
 from typing import TYPE_CHECKING
-
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
+from decimal import Decimal
+from sqlalchemy import DateTime, Numeric, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -34,8 +34,14 @@ class Order(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
-    total_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(
+    Numeric(12, 2),
+    nullable=False,
+)
+    total_amount: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="PENDING"
     )  # PENDING / CONFIRMED / CANCELLED / COMPLETED

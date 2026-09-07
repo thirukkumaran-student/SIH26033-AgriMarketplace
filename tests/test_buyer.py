@@ -256,3 +256,30 @@ def test_blank_buyer_city_rejected(client: TestClient):
 
     assert response.status_code == 422
     assert "must not be blank" in response.json()["detail"][0]["msg"]
+
+def test_invalid_financing_preference_rejected(client: TestClient):
+    token = register_buyer(client)
+
+    response = client.post(
+        "/api/buyer/profile",
+        headers=auth_headers(token),
+        json={
+            "financing_preference": "PLATFROM",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_invalid_financing_preference_update_rejected(client: TestClient):
+    token = register_buyer(client)
+    create_buyer_profile(client, token)
+
+    response = client.put(
+        "/api/buyer/profile",
+        headers=auth_headers(token),
+        json={
+            "financing_preference": "INVALID",
+        },
+    )
+
+    assert response.status_code == 422

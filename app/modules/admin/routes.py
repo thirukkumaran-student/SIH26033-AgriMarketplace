@@ -112,7 +112,7 @@ def list_verifications(
         result.append(
             AdminVerificationQueueItem(
                 user_id=row.user_id,
-                farmer_name=user.name,
+                applicant_name=user.name,
                 farmer_email=user.email,
                 overall_status=overall,
                 document_count=row.document_count,
@@ -156,7 +156,7 @@ def get_farmer_verification(
 
     return AdminVerificationDetailResponse(
         user_id=verification_user.id,
-        farmer_name=verification_user.name,
+        applicant_name=verification_user.name,
         farmer_email=verification_user.email,
         overall_status=_compute_overall_status(docs),
         profile=AdminFarmerProfileResponse.model_validate(profile) if profile else None,
@@ -202,7 +202,7 @@ def approve_farmer(
 
     return AdminActionResponse(
         user_id=verification_user.id,
-        farmer_name=verification_user.name,
+        applicant_name=verification_user.name,
         action="APPROVE",
         new_status=VerificationStatus.APPROVED,
         reviewed_by=current_user.id,
@@ -251,7 +251,7 @@ def reject_farmer(
 
     return AdminActionResponse(
         user_id=verification_user.id,
-        farmer_name=verification_user.name,
+        applicant_name=verification_user.name,
         action="REJECT",
         new_status=VerificationStatus.REJECTED,
         reviewed_by=current_user.id,

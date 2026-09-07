@@ -7,6 +7,7 @@ uvicorn>=0.30
 # (use DATABASE_URL=postgresql+psycopg://... in .env).
 sqlalchemy>=2.0.30
 psycopg[binary]>=3.2
+alembic>=1.13
 
 # --- Configuration & validation ----------------------------------------------
 pydantic-settings>=2.4

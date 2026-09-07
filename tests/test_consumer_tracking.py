@@ -395,7 +395,7 @@ def test_full_marketplace_to_order_to_shipment_to_tracking_flow(client: TestClie
     assert len(body) >= 1
     assert body[0]["status"] == "ASSIGNED"
     assert body[0]["destination"] == "Consumer Home, Delhi"
-    assert body[0]["logistics_cost"] == 300.0
+    assert body[0]["logistics_cost"] == "300.00"
 
 
 # ---------------------------------------------------------------------------

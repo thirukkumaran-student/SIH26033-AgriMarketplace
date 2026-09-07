@@ -12,7 +12,7 @@ CRUD operations (create / update / delete) require:
 
 Reading (GET) requires only a valid JWT.
 """
-
+from decimal import Decimal
 from datetime import date, datetime, timezone
 from typing import Annotated
 
@@ -158,8 +158,8 @@ def list_produce(
     category: str | None = Query(default=None, description="Filter by category"),
     status_filter: ProduceStatus | None = Query(default=None, alias="status", description="Filter by status"),
     location: str | None = Query(default=None, description="Filter by location (contains)"),
-    min_price: float | None = Query(default=None, ge=0, description="Min price per unit"),
-    max_price: float | None = Query(default=None, ge=0, description="Max price per unit"),
+    min_price: Decimal | None = Query(default=None, ge=0, description="Min price per unit"),
+    max_price: Decimal | None = Query(default=None, ge=0, description="Max price per unit"),
     farmer_id: int | None = Query(default=None, description="Filter by farmer user id"),
 ) -> list[Produce]:
     """Return produce listings with optional filters.

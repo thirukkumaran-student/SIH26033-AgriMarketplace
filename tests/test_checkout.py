@@ -115,8 +115,8 @@ def test_consumer_can_review(client: TestClient):
     body = resp.json()
     assert body["produce_id"] == produce["id"]
     assert body["quantity"] == 5
-    assert body["unit_price"] == 25.0
-    assert body["total_amount"] == 125.0
+    assert body["unit_price"] == "25.00"
+    assert body["total_amount"] == "125.00"
 
 
 def test_farmer_cannot_review(client: TestClient):
@@ -408,7 +408,7 @@ def test_quantity_equal_to_stock_accepted(client: TestClient):
         json={"produce_id": produce["id"], "quantity": 10},
     )
     assert resp.status_code == 200
-    assert resp.json()["total_amount"] == 250.0
+    assert resp.json()["total_amount"] == "250.00"
 
 
 def test_quantity_greater_than_stock_rejected(client: TestClient):
@@ -454,8 +454,8 @@ def test_backend_calculates_total(client: TestClient):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["unit_price"] == 100.0
-    assert body["total_amount"] == 300.0
+    assert body["unit_price"] == "100.00"
+    assert body["total_amount"] == "300.00"
 
 
 def test_fake_price_cannot_manipulate_total(client: TestClient):
@@ -470,8 +470,8 @@ def test_fake_price_cannot_manipulate_total(client: TestClient):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["unit_price"] == 99.99
-    assert body["total_amount"] == 199.98
+    assert body["unit_price"] == "99.99"
+    assert body["total_amount"] == "199.98"
 
 
 def test_fake_farmer_id_cannot_manipulate_ownership(client: TestClient):
@@ -503,7 +503,7 @@ def test_fake_total_ignored(client: TestClient):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["total_amount"] == 200.0
+    assert body["total_amount"] == "200.00"
 
 
 # ---------------------------------------------------------------------------
@@ -625,8 +625,8 @@ def test_marketplace_to_review_to_order_flow(client: TestClient):
     )
     assert resp.status_code == 200
     review = resp.json()
-    assert review["total_amount"] == 135.0
-    assert review["unit_price"] == 45.0
+    assert review["total_amount"] == "135.00"
+    assert review["unit_price"] == "45.00"
     assert review["available_stock"] == 100
 
     # Step 2: Actual order
@@ -636,7 +636,7 @@ def test_marketplace_to_review_to_order_flow(client: TestClient):
         json={"produce_id": produce["id"], "quantity": 3},
     )
     assert resp.status_code == 201
-    assert resp.json()["total_amount"] == 135.0
+    assert resp.json()["total_amount"] == "135.00"
     assert resp.json()["status"] == "PENDING"
 
     # Step 3: Stock decreased
@@ -681,7 +681,7 @@ def test_review_then_cancel_order_restores_stock(client: TestClient):
         json={"produce_id": produce["id"], "quantity": 5},
     )
     order_id = resp.json()["id"]
-    assert resp.json()["total_amount"] == 125.0
+    assert resp.json()["total_amount"] == "125.00"
 
     # Stock decreased
     resp = client.get(f"/api/produce/{produce['id']}", headers=auth_headers(farmer_token))

@@ -5,7 +5,7 @@ accepted as user input.
 """
 
 from datetime import date, datetime
-
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.enums import ProduceStatus
@@ -18,7 +18,7 @@ class ProduceCreate(BaseModel):
     category: str = Field(min_length=1, max_length=100, description="Category (e.g. Cereals, Vegetables)")
     quantity: int = Field(gt=0, description="Quantity available (> 0)")
     unit: str = Field(min_length=1, max_length=30, description="Unit (kg, quintal, ton, piece)")
-    price_per_unit: float = Field(ge=0, description="Price per unit (>= 0)")
+    price_per_unit: Decimal = Field(ge=0, description="Price per unit (>= 0)")
     location: str = Field(min_length=1, max_length=500, description="Farm/location address")
     harvest_date: date | None = Field(default=None, description="Harvest date")
     quality_grade: str | None = Field(default=None, max_length=20, description="Quality grade (A, B, C, Premium)")
@@ -32,7 +32,7 @@ class ProduceUpdate(BaseModel):
     category: str | None = Field(default=None, min_length=1, max_length=100)
     quantity: int | None = Field(default=None, gt=0)
     unit: str | None = Field(default=None, min_length=1, max_length=30)
-    price_per_unit: float | None = Field(default=None, ge=0)
+    price_per_unit: Decimal | None = Field(default=None, ge=0)
     location: str | None = Field(default=None, min_length=1, max_length=500)
     harvest_date: date | None = None
     quality_grade: str | None = Field(default=None, max_length=20)
@@ -58,7 +58,7 @@ class ProduceResponse(BaseModel):
     category: str
     quantity: int
     unit: str
-    price_per_unit: float
+    price_per_unit: Decimal
     location: str
     harvest_date: date | None
     quality_grade: str | None

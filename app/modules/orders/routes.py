@@ -27,15 +27,15 @@ from app.models.order import Order
 from app.models.produce import Produce
 from app.models.user import User
 from app.models.buyer import BuyerProfile
-from app.modules.finance.models import FinancingRelationship
+from app.modules.finance.models import (
+    FinancingRelationship,
+    FinancingTransaction,
+)
 from app.modules.finance.schemas import FinancingTransactionCreate
 from app.modules.finance.service import create_financing_transaction
 from app.modules.auth.dependencies import get_current_user, require_role
 from app.schemas.order import OrderCreate, OrderReviewRequest, OrderReviewResponse, OrderResponse, OrderStatusUpdate
 from app.models.buyer import BuyerProfile
-from app.modules.finance.models import FinancingRelationship
-from app.modules.finance.schemas import FinancingTransactionCreate
-from app.modules.finance.service import create_financing_transaction
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -506,11 +506,23 @@ def update_order_status(
     # Perform the transition
     order.status = to_status
 
-    # If CANCELLED, restore stock
+    # If CANCELLED, restore stock and void any outstanding financing.
     if to_status == OrderStatus.CANCELLED.value:
         produce = db.get(Produce, order.produce_id)
         if produce:
             produce.quantity += order.quantity
+
+        financing_transaction = db.scalar(
+            select(FinancingTransaction).where(
+                FinancingTransaction.order_id == order.id
+            )
+        )
+
+        if (
+            financing_transaction is not None
+            and financing_transaction.status == "ACTIVE"
+        ):
+            financing_transaction.status = "VOIDED"
 
     db.commit()
     db.refresh(order)

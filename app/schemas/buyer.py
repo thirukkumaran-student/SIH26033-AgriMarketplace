@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
+from typing import Literal
 
 class BuyerProfileCreate(BaseModel):
     """Payload for POST /api/buyer/profile."""
@@ -33,9 +33,9 @@ class BuyerProfileCreate(BaseModel):
         max_length=20,
         description="PIN code",
     )
-    financing_preference: str = Field(
-        default="NONE",
-        description="Whether the buyer wants platform financing",
+    financing_preference: Literal["NONE", "PLATFORM"] = Field(
+    default="NONE",
+    description="Whether the buyer wants platform financing",
     )
 
     @field_validator("phone", "address", "city", "state", "pincode")
@@ -54,7 +54,7 @@ class BuyerProfileUpdate(BaseModel):
     city: str | None = Field(default=None, max_length=100)
     state: str | None = Field(default=None, max_length=100)
     pincode: str | None = Field(default=None, max_length=20)
-    financing_preference: str | None = None
+    financing_preference: Literal["NONE", "PLATFORM"] | None = None
 
     @field_validator("phone", "address", "city", "state", "pincode")
     @classmethod

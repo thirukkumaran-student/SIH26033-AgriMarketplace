@@ -98,36 +98,3 @@ def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
 def read_me(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """Requires a valid JWT. Never returns the password hash."""
     return current_user
-
-
-# ---------------------------------------------------------------------------
-# TEMPORARY endpoints that only exist to demonstrate RBAC. They are clearly
-# marked and should be removed once the real feature modules are built.
-# ---------------------------------------------------------------------------
-
-TEST_ENDPOINTS_DESCRIPTION = (
-    "TEMPORARY development endpoint used to demonstrate role-based access "
-    "control (RBAC). It will be removed once the real feature modules exist."
-)
-
-
-@router.get(
-    "/test-farmer",
-    summary="[DEV/TEST] Only FARMER can access",
-    description=TEST_ENDPOINTS_DESCRIPTION,
-)
-def test_farmer(
-    current_user: Annotated[User, Depends(require_role(Role.FARMER))],
-) -> dict:
-    return {"message": "FARMER access granted", "user_id": current_user.id}
-
-
-@router.get(
-    "/test-admin",
-    summary="[DEV/TEST] Only ADMIN can access",
-    description=TEST_ENDPOINTS_DESCRIPTION,
-)
-def test_admin(
-    current_user: Annotated[User, Depends(require_role(Role.ADMIN))],
-) -> dict:
-    return {"message": "ADMIN access granted", "user_id": current_user.id}

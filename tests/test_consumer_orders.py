@@ -83,7 +83,7 @@ def test_consumer_successfully_places_order(client: TestClient):
     assert body["produce_id"] == produce["id"]
     assert body["quantity"] == 10
     assert body["status"] == "PENDING"
-    assert body["total_amount"] == 10 * produce["price_per_unit"]
+    assert body["total_amount"] == "250.00"
 
 
 def _register_and_approve_farmer(client: TestClient, email: str = "farmer_order@example.com",
@@ -116,8 +116,8 @@ def test_backend_calculates_total_amount(client: TestClient):
     )
     assert resp.status_code == 201
     body = resp.json()
-    assert body["total_amount"] == 150.0
-    assert body["unit_price"] == 30.0
+    assert body["total_amount"] == "150.00"
+    assert body["unit_price"] == "30.00"
 
 
 def test_fake_price_cannot_manipulate_total(client: TestClient):
@@ -134,8 +134,8 @@ def test_fake_price_cannot_manipulate_total(client: TestClient):
         json={"produce_id": produce["id"], "quantity": 2},
     )
     assert resp.status_code == 201
-    assert resp.json()["total_amount"] == 100.0  # 2 * 50.0
-    assert resp.json()["unit_price"] == 50.0
+    assert resp.json()["total_amount"] == "100.00"  # 2 * 50.0
+    assert resp.json()["unit_price"] == "50.00"
 
 
 def test_fake_farmer_id_cannot_manipulate_ownership(client: TestClient):
@@ -167,8 +167,8 @@ def test_backend_authoritative_price_on_order_response(client: TestClient):
     )
     assert resp.status_code == 201
     body = resp.json()
-    assert body["unit_price"] == 99.99
-    assert round(body["total_amount"], 2) == 299.97
+    assert body["unit_price"] == "99.99"
+    assert body["total_amount"] == "299.97"
 
 
 # ---------------------------------------------------------------------------

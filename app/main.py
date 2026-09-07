@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import models  # noqa: F401  (import registers all models on Base.metadata)
-from app.core.database import Base, engine
 from app.modules.auth.routes import router as auth_router
 from app.modules.farmer.routes import profile_router as farmer_profile_router
 from app.modules.farmer.routes import verification_router as verification_router
@@ -27,16 +26,10 @@ from app.modules.buyer.routes import router as buyer_router
 from app.modules.financier.routes import router as financier_router
 from app.modules.finance.router import router as finance_router
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Runs on startup.
-
-    ``Base.metadata.create_all`` simply creates any tables that do not exist
-    yet (the ``users`` table for now). It is idempotent and NEVER drops or
-    resets existing tables, so it is safe for the initial prototype.
-    Alembic migrations can replace this later without any code changes here.
-    """
-    Base.metadata.create_all(bind=engine)
+    """Application startup and shutdown lifecycle."""
     yield
 
 
@@ -68,6 +61,7 @@ app.include_router(admin_monitoring_router)
 app.include_router(buyer_router)
 app.include_router(financier_router)
 app.include_router(finance_router)
+
 
 @app.get("/", tags=["meta"], summary="Health check")
 def root() -> dict:

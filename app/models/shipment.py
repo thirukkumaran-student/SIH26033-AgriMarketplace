@@ -9,10 +9,10 @@ Relationship chain: Shipment -> Order -> Produce -> Farmer (User)
 """
 
 from datetime import datetime
-
-from sqlalchemy import DateTime, Float, ForeignKey, String, func
+from decimal import Decimal
+from sqlalchemy import DateTime, Numeric, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from app.models.order import Order
 from app.core.database import Base
 
 
@@ -31,7 +31,11 @@ class Shipment(Base):
     estimated_delivery: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    logistics_cost: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    logistics_cost: Mapped[Decimal] = mapped_column(
+    Numeric(12, 2),
+    nullable=False,
+    default=Decimal("0.00"),
+)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -8,6 +9,7 @@ from app.modules.auth.dependencies import require_role
 from app.modules.finance.models import (
     FinancingRelationship,
     FinancingRequest,
+    FinancingTransaction,
 )
 from app.modules.finance.schemas import (
     FinancingDecision,
@@ -32,6 +34,7 @@ from app.modules.finance.service import (
     get_financing_requests_for_buyer,
 )
 
+from app.models.order import Order
 
 router = APIRouter(
     prefix="/api/finance",
@@ -249,6 +252,34 @@ def create_transaction(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to use this financing relationship",
+        )
+
+    order = db.scalar(
+        select(Order).where(Order.id == data.order_id)
+    )
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    if order.buyer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to finance this order",
+        )
+
+    existing_transaction = db.scalar(
+        select(FinancingTransaction).where(
+            FinancingTransaction.order_id == data.order_id
+        )
+    )
+
+    if existing_transaction is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This order already has a financing transaction",
         )
 
     try:

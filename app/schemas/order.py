@@ -10,7 +10,7 @@ backend from the Produce listing and the owning farmer.
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
-
+from decimal import Decimal
 from app.core.enums import OrderStatus
 
 
@@ -68,8 +68,8 @@ class OrderResponse(BaseModel):
     buyer_id: int
     farmer_id: int
     quantity: int
-    unit_price: float
-    total_amount: float
+    unit_price: Decimal
+    total_amount: Decimal
     status: OrderStatus
     created_at: datetime
     updated_at: datetime
@@ -88,8 +88,8 @@ class OrderReviewResponse(BaseModel):
     produce_id: int
     crop: str
     quantity: int
-    unit_price: float
-    total_amount: float
+    unit_price: Decimal
+    total_amount: Decimal
     unit: str
     available_stock: int
     status: str

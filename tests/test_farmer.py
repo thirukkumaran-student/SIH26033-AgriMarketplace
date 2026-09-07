@@ -241,7 +241,7 @@ def test_farmer_views_verification_status(client):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["user_id"] > 0
-    assert body["farmer_name"] == "Test Farmer"
+    assert body["applicant_name"] == "Test Farmer"
     assert len(body["documents"]) == 2
     assert body["overall_status"] == "PENDING"  # at least one PENDING
 
@@ -317,3 +317,29 @@ def test_verification_status_all_approved(client):
     response = client.get("/api/verification/status", headers=auth_headers(token))
     assert response.status_code == 200, response.text
     assert response.json()["overall_status"] == "APPROVED"
+
+def test_financier_cannot_create_farmer_profile(client):
+    register_user(
+        client,
+        email="financier_farmer_profile@example.com",
+        role="FINANCIER",
+    )
+    token = obtain_token(
+        client,
+        email="financier_farmer_profile@example.com",
+    )
+
+    response = client.post(
+        "/api/farmer/profile",
+        headers=auth_headers(token),
+        json={
+            "phone": "9876543210",
+            "farm_name": "Should Not Exist",
+            "farm_size_acres": 10.0,
+            "farm_location": "Test Location",
+            "soil_type": "Loam",
+            "irrigation_type": "Drip",
+        },
+    )
+
+    assert response.status_code == 403
