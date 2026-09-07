@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* ── AgriConnect Design System Tokens ─────────────────────────── */
+:root {
+  /* Brand */
+  --agri-primary:   #166534;
+  --agri-primary-hover: #14532d;
+  --agri-secondary: #22C55E;
+
+  /* Surfaces */
+  --agri-bg:        #F8FAFB;
+  --agri-sidebar-bg: #14532d;
+  --agri-sidebar-active: #166534;
+  --agri-card-bg:   #ffffff;
+
+  /* Text */
+  --agri-text:      #17201A;
+  --agri-text-secondary: #4B5563;
+  --agri-text-muted: #9CA3AF;
+  --agri-text-on-dark: #ffffff;
+  --agri-text-on-dark-muted: rgba(255, 255, 255, 0.6);
+
+  /* Status */
+  --agri-success:   #16A34A;
+  --agri-success-bg: #DCFCE7;
+  --agri-warning:   #F59E0B;
+  --agri-warning-bg: #FEF3C7;
+  --agri-error:     #DC2626;
+  --agri-error-bg:  #FEE2E2;
+  --agri-blue:      #2563EB;
+  --agri-blue-bg:   #DBEAFE;
+  --agri-purple:    #7C3AED;
+  --agri-purple-bg: #EDE9FE;
+
+  /* Borders */
+  --agri-border:    #E5E7EB;
+  --agri-border-light: #F3F4F6;
+
+  /* Spacing */
+  --agri-radius-sm: 4px;
+  --agri-radius-md: 6px;
+  --agri-radius-lg: 8px;
+  --agri-radius-xl: 12px;
+
+  /* Typography */
+  --agri-font: 'Inter', system-ui, sans-serif;
+}
+
+/* Apply Inter globally */
+body {
+  font-family: var(--agri-font);
+  color: var(--agri-text);
+  background-color: var(--agri-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Animated "Get Started" button ───────────────────────────── */
+.agri-cta-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 28px;
+  border: 4px solid transparent;
+  font-size: 16px;
+  font-family: var(--agri-font);
+  font-weight: 600;
+  background-color: #166534;
+  border-radius: 100px;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px #166534;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.agri-cta-btn svg {
+  position: absolute;
+  width: 24px;
+  fill: #ffffff;
+  z-index: 9;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.agri-cta-btn .arr-1 { right: 16px; }
+.agri-cta-btn .arr-2 { left: -25%; }
+.agri-cta-btn .circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background-color: #4ade80;
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.agri-cta-btn .btn-text {
+  position: relative;
+  z-index: 1;
+  transform: translateX(-12px);
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.agri-cta-btn:hover {
+  box-shadow: 0 0 0 12px transparent;
+  color: #14532d;
+  border-radius: 12px;
+}
+.agri-cta-btn:hover .arr-1 { right: -25%; }
+.agri-cta-btn:hover .arr-2 { left: 16px; }
+.agri-cta-btn:hover .btn-text { transform: translateX(12px); }
+.agri-cta-btn:hover svg { fill: #14532d; }
+.agri-cta-btn:active {
+  scale: 0.95;
+  box-shadow: 0 0 0 4px #4ade80;
+}
+.agri-cta-btn:hover .circle {
+  width: 220px;
+  height: 220px;
+  opacity: 1;
+}
+
+/* Hide scrollbar track while keeping scrollability */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--agri-border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--agri-text-muted); }
