@@ -1,0 +1,14 @@
+import { useState } from "react";
+import { PageHeading, StatePanel, StatusBadge } from "../components/ui";
+import useApiData from "../hooks/useApiData";
+import { getVerification, submitVerification } from "../api/profiles";
+
+export default function VerificationPage() {
+  const state = useApiData(getVerification, []);
+  const [form, setForm] = useState({document_type:"AADHAAR", document_number:"", file_url:""});
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState(false);
+  async function submit(event) { event.preventDefault(); setWorking(true); setError(""); const payload={...form}; if(!payload.file_url) delete payload.file_url; try {await submitVerification(payload); setForm({...form,document_number:"",file_url:""}); await state.reload();} catch(err){setError(err.message);} finally{setWorking(false);} }
+  const missing = state.error?.includes("No verification documents");
+  return <><PageHeading eyebrow="Trust and access" title="Verification" description="Approved verification is required before a farmer can create marketplace listings." /><div className="dashboard-grid"><section className="card"><div className="card-header"><h2 className="section-heading">Verification status</h2>{state.data && <StatusBadge status={state.data.overall_status} />}</div><div className="card-body"><StatePanel loading={state.loading} error={missing ? "" : state.error} empty={missing} emptyText="No documents submitted yet.">{state.data?.documents?.map((doc) => <div className="split" key={doc.id} style={{padding:".7rem 0",borderBottom:"1px solid var(--line)"}}><div><strong>{doc.document_type}</strong><div className="muted">Submitted {new Date(doc.submitted_at).toLocaleDateString()}</div></div><StatusBadge status={doc.status} /></div>)}</StatePanel></div></section><section className="card"><div className="card-header"><h2 className="section-heading">Submit document</h2></div><div className="card-body">{error && <div className="notice error">{error}</div>}<form className="stack" onSubmit={submit}><div className="field"><label htmlFor="doc-type">Document type</label><select id="doc-type" value={form.document_type} onChange={(e)=>setForm({...form,document_type:e.target.value})}><option>AADHAAR</option><option>PAN</option><option>LAND_RECORD</option></select></div><div className="field"><label htmlFor="doc-number">Document number</label><input id="doc-number" required value={form.document_number} onChange={(e)=>setForm({...form,document_number:e.target.value})} /></div><div className="field"><label htmlFor="doc-url">File URL (optional)</label><input id="doc-url" value={form.file_url} onChange={(e)=>setForm({...form,file_url:e.target.value})} /></div><button className="button" disabled={working}>{working?"Submitting…":"Submit for review"}</button></form></div></section></div></>;
+}
