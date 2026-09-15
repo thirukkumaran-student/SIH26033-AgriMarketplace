@@ -21,6 +21,7 @@ The configured frontend origin is allowed by CORS. Authentication is bearer-toke
 | Produce | `/api/produce` CRUD | Authenticated read; approved owning farmer write |
 | Marketplace | `/api/marketplace/produce` | Consumer, bulk buyer |
 | Orders | `/api/orders/review`, `/api/orders`, `/api/orders/{id}`, status update | Consumer, bulk buyer, farmer, admin as enforced per operation |
+| Produce payment | `/api/orders/{id}/simulate-payment` | Owning consumer or bulk buyer |
 | Consumer profile/tracking | `/api/consumer/profile`, `/api/consumer/shipments` | Consumer |
 | Disputes | `/api/consumer/disputes`, `/api/admin/disputes` | Consumer/admin respectively |
 | Bulk-buyer profile | `/api/buyer/profile` | Bulk buyer |
@@ -28,6 +29,7 @@ The configured frontend origin is allowed by CORS. Authentication is bearer-toke
 | Finance | `/api/finance/requests`, relationships, transactions, repayment | Bulk buyer/financier by ownership and operation |
 | Farmer shipments | `/api/farmer/shipments` | Farmer owning the related order |
 | Logistics | `/api/logistics/shipments`, status actions, route optimizer, handoffs | Logistics |
+| Logistics fee | `/api/logistics/shipments/{id}/collect-fee` | Logistics |
 | Forecast | `/api/forecast/`, `/predict`, `/train` | Farmer/bulk buyer/admin; training admin-only |
 | Suggestions | `/api/suggestions/` | Farmer/bulk buyer/admin |
 | Admin | `/api/admin/verifications`, monitoring, orders, disputes | Admin |
@@ -48,6 +50,10 @@ A bulk buyer sends a request to an approved financier. The assigned financier re
 ### Shipments, routes, and handoffs
 
 A logistics user creates a shipment for an existing order. The supported path is `PENDING -> ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED`; invalid jumps are rejected. Farmers and consumers have ownership-scoped read views. Logistics operators can append custody handoffs. Route optimization uses OR-Tools over a caller-supplied square integer distance matrix.
+
+### Demo payments
+
+Produce payments are simulated by the owning consumer or bulk buyer against the authoritative stored order total. Cash is permitted only below ₹500. Logistics-fee collection is simulated by a logistics user after assignment or pickup and uses the authoritative shipment cost. References and timestamps are stored directly on the existing order and shipment records; neither operation changes the corresponding order or shipment lifecycle state.
 
 ### Forecasting
 
@@ -70,8 +76,9 @@ Production configuration targets PostgreSQL through `DATABASE_URL`; SQLAlchemy 2
 
 - `70d7a0f1364c_initial_schema.py`
 - `f22e87c8b2a0_migrate_marketplace_money_fields_to_.py`
-- `315606f9e7b2_add_forecasts_table.py`
 - `76f7011ef89e_add_handoffs_table.py`
+- `315606f9e7b2_add_forecasts_table.py`
+- `2a91b0d5c8ef_add_demo_payment_fields.py`
 
 No migration is required for CEDA because the small fallback cache is in memory.
 

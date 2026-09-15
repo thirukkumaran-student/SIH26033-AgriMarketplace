@@ -11,7 +11,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
-from app.core.enums import OrderStatus
+from app.core.enums import OrderStatus, PaymentMethod, PaymentStatus
 
 
 class OrderCreate(BaseModel):
@@ -54,6 +54,14 @@ class OrderStatusUpdate(BaseModel):
     status: OrderStatus
 
 
+class OrderPaymentRequest(BaseModel):
+    """Only the mock method comes from the buyer; amount stays authoritative."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    payment_method: PaymentMethod
+
+
 class OrderResponse(BaseModel):
     """Representation of an order returned by the API.
 
@@ -71,6 +79,10 @@ class OrderResponse(BaseModel):
     unit_price: Decimal
     total_amount: Decimal
     status: OrderStatus
+    payment_status: PaymentStatus
+    payment_method: PaymentMethod | None
+    payment_reference: str | None
+    paid_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

@@ -5,3 +5,4 @@ export const createOrder = (payload) => apiRequest("/api/orders", { method: "POS
 export const listOrders = () => apiRequest("/api/orders");
 export const getOrder = (id) => apiRequest(`/api/orders/${id}`);
 export const updateOrderStatus = (id, status) => apiRequest(`/api/orders/${id}/status`, { method: "PATCH", body: { status } });
+export const simulateOrderPayment = (id, paymentMethod) => apiRequest(`/api/orders/${id}/simulate-payment`, { method: "POST", body: { payment_method: paymentMethod } });

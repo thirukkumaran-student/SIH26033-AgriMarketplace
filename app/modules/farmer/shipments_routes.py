@@ -64,6 +64,9 @@ def _build_shipment_response(shipment: Shipment, order: Order) -> ShipmentRespon
         destination=shipment.destination,
         estimated_delivery=shipment.estimated_delivery,
         logistics_cost=shipment.logistics_cost,
+        logistics_fee_status=shipment.logistics_fee_status,
+        logistics_fee_reference=shipment.logistics_fee_reference,
+        logistics_fee_collected_at=shipment.logistics_fee_collected_at,
         created_at=shipment.created_at,
         updated_at=shipment.updated_at,
     )
@@ -141,6 +144,9 @@ def get_farmer_shipment(
         destination=shipment.destination,
         estimated_delivery=shipment.estimated_delivery,
         logistics_cost=shipment.logistics_cost,
+        logistics_fee_status=shipment.logistics_fee_status,
+        logistics_fee_reference=shipment.logistics_fee_reference,
+        logistics_fee_collected_at=shipment.logistics_fee_collected_at,
         created_at=shipment.created_at,
         updated_at=shipment.updated_at,
     )

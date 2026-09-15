@@ -44,6 +44,18 @@ class OrderStatus(str, Enum):
     COMPLETED = "COMPLETED"
 
 
+class PaymentStatus(str, Enum):
+    UNPAID = "UNPAID"
+    PAID = "PAID"
+
+
+class PaymentMethod(str, Enum):
+    UPI = "UPI"
+    CARD = "CARD"
+    BANK_TRANSFER = "BANK_TRANSFER"
+    CASH = "CASH"
+
+
 class ShipmentStatus(str, Enum):
     """Status of a farmer shipment."""
 
@@ -53,3 +65,8 @@ class ShipmentStatus(str, Enum):
     IN_TRANSIT = "IN_TRANSIT"
     DELIVERED = "DELIVERED"
     CANCELLED = "CANCELLED"
+
+
+class LogisticsFeeStatus(str, Enum):
+    DUE = "DUE"
+    COLLECTED = "COLLECTED"

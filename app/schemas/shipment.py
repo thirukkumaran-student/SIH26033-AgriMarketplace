@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.enums import ShipmentStatus
+from app.core.enums import LogisticsFeeStatus, ShipmentStatus
 
 
 class ShipmentResponse(BaseModel):
@@ -26,6 +26,9 @@ class ShipmentResponse(BaseModel):
     destination: str
     estimated_delivery: datetime | None
     logistics_cost: Decimal
+    logistics_fee_status: LogisticsFeeStatus
+    logistics_fee_reference: str | None
+    logistics_fee_collected_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -45,5 +48,8 @@ class ShipmentDetailResponse(BaseModel):
     destination: str
     estimated_delivery: datetime | None
     logistics_cost: Decimal
+    logistics_fee_status: LogisticsFeeStatus
+    logistics_fee_reference: str | None
+    logistics_fee_collected_at: datetime | None
     created_at: datetime
     updated_at: datetime

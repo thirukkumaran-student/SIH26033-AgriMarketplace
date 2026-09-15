@@ -45,6 +45,12 @@ class Order(Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="PENDING"
     )  # PENDING / CONFIRMED / CANCELLED / COMPLETED
+    payment_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="UNPAID", server_default="UNPAID"
+    )
+    payment_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    payment_reference: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

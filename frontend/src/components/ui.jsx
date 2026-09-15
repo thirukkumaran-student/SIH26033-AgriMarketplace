@@ -2,8 +2,8 @@ import { AlertCircle, Inbox, LoaderCircle } from "lucide-react";
 
 export function StatusBadge({ status }) {
   const normalized = String(status || "UNKNOWN").toUpperCase();
-  const success = ["ACTIVE", "APPROVED", "COMPLETED", "DELIVERED", "CONNECTED", "OK", "SELECTED"].includes(normalized);
-  const warning = ["PENDING", "ASSIGNED", "PICKED_UP", "IN_TRANSIT", "PARTIAL"].includes(normalized);
+  const success = ["ACTIVE", "APPROVED", "COMPLETED", "DELIVERED", "CONNECTED", "OK", "SELECTED", "PAID", "COLLECTED"].includes(normalized);
+  const warning = ["PENDING", "ASSIGNED", "PICKED_UP", "IN_TRANSIT", "PARTIAL", "UNPAID", "DUE"].includes(normalized);
   const danger = ["REJECTED", "CANCELLED", "VOIDED", "UNAVAILABLE", "DEGRADED"].includes(normalized);
   const className = success ? "success" : warning ? "warning" : danger ? "danger" : "neutral";
   return <span className={`status-badge ${className}`}>{normalized.replaceAll("_", " ")}</span>;

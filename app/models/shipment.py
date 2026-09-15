@@ -32,10 +32,17 @@ class Shipment(Base):
         DateTime(timezone=True), nullable=True
     )
     logistics_cost: Mapped[Decimal] = mapped_column(
-    Numeric(12, 2),
-    nullable=False,
-    default=Decimal("0.00"),
-)
+        Numeric(12, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    logistics_fee_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="DUE", server_default="DUE"
+    )
+    logistics_fee_reference: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    logistics_fee_collected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

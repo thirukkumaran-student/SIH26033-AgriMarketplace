@@ -14,6 +14,8 @@ These transitions are enforced; others return 422.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.enums import OrderStatus, ProduceStatus, Role, VerificationStatus
+from app.core.enums import OrderStatus, PaymentMethod, PaymentStatus, ProduceStatus, Role, VerificationStatus
 from app.models.farmer import VerificationDocument
 from app.models.order import Order
 from app.models.produce import Produce
@@ -34,7 +36,14 @@ from app.modules.finance.models import (
 from app.modules.finance.schemas import FinancingTransactionCreate
 from app.modules.finance.service import create_financing_transaction
 from app.modules.auth.dependencies import get_current_user, require_role
-from app.schemas.order import OrderCreate, OrderReviewRequest, OrderReviewResponse, OrderResponse, OrderStatusUpdate
+from app.schemas.order import (
+    OrderCreate,
+    OrderPaymentRequest,
+    OrderReviewRequest,
+    OrderReviewResponse,
+    OrderResponse,
+    OrderStatusUpdate,
+)
 from app.models.buyer import BuyerProfile
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -388,6 +397,53 @@ def review_order(
         available_stock=produce.quantity,
         status=produce.status,
     )
+
+
+@router.post(
+    "/{order_id}/simulate-payment",
+    response_model=OrderResponse,
+    summary="Simulate the buyer paying the farmer",
+)
+def simulate_order_payment(
+    order_id: int,
+    payload: OrderPaymentRequest,
+    db: DbSession,
+    current_user: Annotated[
+        User,
+        Depends(require_role(Role.CONSUMER, Role.BULK_BUYER)),
+    ],
+) -> Order:
+    """Demo Payment Simulation only. No real money is transferred."""
+    order = _get_order_or_404(db, order_id)
+
+    if order.buyer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only pay for your own orders",
+        )
+    if order.status not in {OrderStatus.PENDING.value, OrderStatus.CONFIRMED.value}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment is allowed only while an order is PENDING or CONFIRMED",
+        )
+    if order.payment_status == PaymentStatus.PAID.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This order has already been paid",
+        )
+    if payload.payment_method == PaymentMethod.CASH and order.total_amount >= Decimal("500.00"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cash is available only when the order total is strictly below ₹500",
+        )
+
+    order.payment_status = PaymentStatus.PAID.value
+    order.payment_method = payload.payment_method.value
+    order.payment_reference = f"AGR-PAY-{secrets.token_hex(4).upper()}"
+    order.paid_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 # ---------------------------------------------------------------------------

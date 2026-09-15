@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.enums import Role
+from app.core.enums import LogisticsFeeStatus, Role, ShipmentStatus
 from app.models.handoff import Handoff
 from app.models.order import Order
 from app.models.shipment import Shipment
@@ -47,6 +48,9 @@ class ShipmentResponse(BaseModel):
     destination: str
     estimated_delivery: datetime | None
     logistics_cost: Decimal
+    logistics_fee_status: LogisticsFeeStatus
+    logistics_fee_reference: str | None
+    logistics_fee_collected_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -193,6 +197,42 @@ def pickup_shipment(
         "PICKED_UP",
         db,
     )
+
+
+@router.post(
+    "/shipments/{shipment_id}/collect-fee",
+    response_model=ShipmentResponse,
+    summary="Simulate collecting the farmer's logistics fee",
+)
+def collect_logistics_fee(
+    shipment_id: int,
+    db: DbSession,
+    current_user: LogisticsUser,
+) -> Shipment:
+    """Demo Payment Simulation only. No real money is transferred."""
+    shipment = db.get(Shipment, shipment_id)
+    if shipment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Shipment not found.",
+        )
+    if shipment.status not in {ShipmentStatus.ASSIGNED.value, ShipmentStatus.PICKED_UP.value}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The logistics fee can be collected only after assignment and before transit",
+        )
+    if shipment.logistics_fee_status == LogisticsFeeStatus.COLLECTED.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The logistics fee has already been collected",
+        )
+
+    shipment.logistics_fee_status = LogisticsFeeStatus.COLLECTED.value
+    shipment.logistics_fee_reference = f"AGR-LOG-{secrets.token_hex(4).upper()}"
+    shipment.logistics_fee_collected_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(shipment)
+    return shipment
 
 
 @router.post(

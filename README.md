@@ -14,6 +14,7 @@ AgroSave is a role-based agricultural marketplace for farmers, consumers, bulk b
 - Admin farmer verification, dispute resolution, order monitoring, and service/database health
 - React dashboards and navigation tailored to all six roles
 - A focused FastAPI integration with CEDA Agri Market/Agmarknet price observations
+- Demo produce-payment and logistics-fee simulations with separate status tracking
 - An optional, feature-detected WebMCP order tool for supported browsers; it reuses the same review/create APIs
 
 The backend code is the source of truth. Earlier documentation that described logistics or forecasting as unimplemented was stale: both modules and their migrations are present on this branch.
@@ -82,6 +83,15 @@ Every API-driven view provides an explicit loading, failure, empty, or content s
 5. A `401` clears the local token and returns the user to login.
 
 For a production browser deployment, consider an HttpOnly cookie/session strategy and CSRF protection. The present storage choice is intentionally simple for the SIH prototype.
+
+## Demo payment simulation
+
+No real money is transferred and no external payment gateway or payment credentials are used.
+
+- A consumer or bulk buyer can call `POST /api/orders/{order_id}/simulate-payment` for their own `PENDING` or `CONFIRMED` order. The backend reads `orders.total_amount`, accepts only `UPI`, `CARD`, `BANK_TRANSFER`, or `CASH`, and rejects cash when the stored total is ₹500 or more.
+- A logistics operator can call `POST /api/logistics/shipments/{shipment_id}/collect-fee` while a shipment is `ASSIGNED` or `PICKED_UP`. This simulates the farmer paying the stored logistics cost directly to the operator.
+- Produce payment, order status, logistics-fee status, and shipment status are independent. Payment never completes an order or delivers a shipment.
+- Generated `AGR-PAY-XXXXXXXX` and `AGR-LOG-XXXXXXXX` references are demo confirmations only. Refunds, OTPs, PINs, CVV checks, bank validation, webhooks, real card storage, and external gateways are intentionally outside scope.
 
 ## CEDA / Agmarknet market prices
 
@@ -188,7 +198,8 @@ npm run build
 - Public registration remains compatible with the existing backend contract. Operational roles should be provisioned under a stricter production policy.
 - Automated frontend unit/browser tests are not configured; the verified checks are ESLint, a production build, and manual route/shell inspection.
 - The preview browser did not provide a usable WebMCP validation context, so tool registration could not be contract-tested there; unsupported browsers simply ignore it.
-- Payments, notifications, password reset, media upload/storage, production deployment, and websocket updates are outside this integration.
+- Real payment gateways, notifications, password reset, media upload/storage, production deployment, and websocket updates are outside this integration.
+- Payments are simulations only; there is no settlement, refund, reconciliation, or financial ledger.
 
 ## API overview
 
